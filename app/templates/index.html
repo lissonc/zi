@@ -45,51 +45,76 @@
     </main>
     
     <script>
-        // Store volumes data for chapter updates
-        const volumes = {{ volumes|tojson|safe }};
+        // Get CSRF token from meta tag
+        const csrfToken = "{{ csrf_token() }}";
+        
+        // Add CSRF token to all fetch requests
+        function fetchWithCSRF(url, options = {}) {
+            options.headers = {
+                ...options.headers,
+                'X-CSRFToken': csrfToken
+            };
+            return fetch(url, options);
+        }
+        
+        function getFilterParams() {
+            const volume = document.getElementById('volume-select').value;
+            const chapter = document.getElementById('chapter-select').value;
+            const params = new URLSearchParams();
+            
+            if (volume) params.append('volume', volume);
+            if (chapter) params.append('chapter', chapter);
+            
+            return params.toString();
+        }
         
         function updateChapters() {
             const volumeSelect = document.getElementById('volume-select');
             const chapterSelect = document.getElementById('chapter-select');
             const selectedVolume = volumeSelect.value;
             
-            // Clear existing options
+            // Clear existing chapters
             chapterSelect.innerHTML = '<option value="">All Chapters</option>';
             
             if (selectedVolume) {
-                const volume = volumes.find(v => v.number === parseInt(selectedVolume));
+                const volume = {{ volumes|tojson|safe }}.find(v => v.number == selectedVolume);
                 if (volume && volume.chapters) {
                     volume.chapters.forEach(chapter => {
                         const option = document.createElement('option');
                         option.value = chapter.number;
-                        option.textContent = `Chapter ${chapter.number}: ${chapter.title}`;
+                        option.textContent = chapter.title;
                         chapterSelect.appendChild(option);
                     });
                 }
             }
             
-            // Update graph with new filters
             updateGraph();
         }
         
-        function getFilterParams() {
-            const volumeSelect = document.getElementById('volume-select');
-            const chapterSelect = document.getElementById('chapter-select');
-            const params = new URLSearchParams();
-            
-            if (volumeSelect.value) {
-                params.append('volume', volumeSelect.value);
-            }
-            if (chapterSelect.value) {
-                params.append('chapter', chapterSelect.value);
+        function searchCharacters() {
+            const searchQuery = document.getElementById('search').value;
+            const params = getFilterParams();
+            if (searchQuery) {
+                params.append('q', searchQuery);
             }
             
-            return params;
+            fetchWithCSRF(`/api/search?${params}`)
+                .then(response => response.json())
+                .then(characters => {
+                    // Clear existing graph
+                    document.getElementById('graph-container').innerHTML = '';
+                    // Rebuild graph with filtered data
+                    buildGraphData(characters);
+                    initGraph();
+                })
+                .catch(error => {
+                    console.error('Error searching characters:', error);
+                });
         }
         
         function updateGraph() {
             const params = getFilterParams();
-            fetch(`/api/characters?${params}`)
+            fetchWithCSRF(`/api/characters?${params}`)
                 .then(response => response.json())
                 .then(characters => {
                     // Clear existing graph

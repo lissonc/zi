@@ -1,87 +1,31 @@
-from flask import Blueprint, render_template, request, jsonify, current_app
-import json
-import os
+from flask import Blueprint, render_template, request, jsonify
+from sqlalchemy import or_
+from .models import db, Character, Primitive, Keyword
 
 bp = Blueprint('main', __name__)
-
-def load_hanzi_data():
-    """Load data from JSON file"""
-    data_path = os.path.join(current_app.static_folder, 'data', 'hanzi_data.json')
-    
-    # Default data structure
-    default_data = {
-        "characters": [
-            {
-                "character": "一",
-                "frame_number": 1,
-                "keywords": ["one", "single"],
-                "primitive_elements": [],
-                "primitive_meanings": ["one", "single"],
-                "story": "The number one is represented by a single horizontal stroke.",
-                "volume": 1,
-                "chapter": 1
-            },
-            {
-                "character": "二",
-                "frame_number": 2,
-                "keywords": ["two"],
-                "primitive_elements": ["一"],
-                "primitive_meanings": ["two"],
-                "story": "The number two is represented by two horizontal strokes.",
-                "volume": 1,
-                "chapter": 1
-            },
-            {
-                "character": "三",
-                "frame_number": 3,
-                "keywords": ["three"],
-                "primitive_elements": ["一", "二"],
-                "primitive_meanings": ["three"],
-                "story": "The number three is represented by three horizontal strokes.",
-                "volume": 1,
-                "chapter": 1
-            }
-        ],
-        "metadata": {
-            "volumes": [
-                {
-                    "number": 1,
-                    "title": "Book 1",
-                    "chapters": [
-                        {"number": 1, "title": "The First Elements"},
-                        {"number": 2, "title": "The First Primitives"},
-                        {"number": 3, "title": "Building Blocks"}
-                    ]
-                },
-                {
-                    "number": 2,
-                    "title": "Book 2",
-                    "chapters": [
-                        {"number": 1, "title": "Advanced Elements"},
-                        {"number": 2, "title": "Complex Characters"},
-                        {"number": 3, "title": "Final Characters"}
-                    ]
-                }
-            ]
-        }
-    }
-    
-    try:
-        # Try to read existing file
-        with open(data_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        # If file doesn't exist or is invalid, create it with default data
-        os.makedirs(os.path.dirname(data_path), exist_ok=True)
-        with open(data_path, 'w', encoding='utf-8') as f:
-            json.dump(default_data, f, ensure_ascii=False, indent=2)
-        return default_data
 
 @bp.route('/')
 def index():
     """Main page with graph visualization"""
-    data = load_hanzi_data()
-    return render_template('index.html', volumes=data['metadata']['volumes'])
+    volumes = db.session.query(Character.volume).distinct().all()
+    volume_data = []
+    
+    for (volume_num,) in volumes:
+        if volume_num:  # Skip None values
+            chapters = db.session.query(Character.chapter).filter(
+                Character.volume == volume_num
+            ).distinct().all()
+            
+            volume_data.append({
+                'number': volume_num,
+                'title': f'Book {volume_num}',
+                'chapters': [
+                    {'number': chapter[0], 'title': f'Chapter {chapter[0]}'}
+                    for chapter in chapters if chapter[0]
+                ]
+            })
+    
+    return render_template('index.html', volumes=volume_data)
 
 @bp.route('/api/characters')
 def get_characters():
@@ -89,30 +33,46 @@ def get_characters():
     volume = request.args.get('volume', type=int)
     chapter = request.args.get('chapter', type=int)
     
-    data = load_hanzi_data()
-    characters = data['characters']
+    query = Character.query
     
     if volume is not None:
-        characters = [c for c in characters if c['volume'] == volume]
+        query = query.filter(Character.volume == volume)
         
     if chapter is not None:
-        characters = [c for c in characters if c['chapter'] == chapter]
+        query = query.filter(Character.chapter == chapter)
     
-    return jsonify(characters)
+    characters = query.all()
+    return jsonify([char.to_dict() for char in characters])
 
 @bp.route('/api/metadata')
 def get_metadata():
     """API endpoint to get volumes and chapters information"""
-    data = load_hanzi_data()
-    return jsonify(data['metadata'])
+    volumes = db.session.query(Character.volume).distinct().all()
+    metadata = {'volumes': []}
+    
+    for (volume_num,) in volumes:
+        if volume_num:  # Skip None values
+            chapters = db.session.query(Character.chapter).filter(
+                Character.volume == volume_num
+            ).distinct().all()
+            
+            metadata['volumes'].append({
+                'number': volume_num,
+                'title': f'Book {volume_num}',
+                'chapters': [
+                    {'number': chapter[0], 'title': f'Chapter {chapter[0]}'}
+                    for chapter in chapters if chapter[0]
+                ]
+            })
+    
+    return jsonify(metadata)
 
 @bp.route('/api/character/<char>')
 def get_character(char):
     """API endpoint to get details for a specific character"""
-    data = load_hanzi_data()
-    for character in data['characters']:
-        if character['character'] == char:
-            return jsonify(character)
+    character = Character.query.filter_by(character=char).first()
+    if character:
+        return jsonify(character.to_dict())
     return jsonify({"error": "Character not found"}), 404
 
 @bp.route('/api/search')
@@ -122,32 +82,28 @@ def search():
     volume = request.args.get('volume', type=int)
     chapter = request.args.get('chapter', type=int)
     
-    data = load_hanzi_data()
-    characters = data['characters']
+    char_query = Character.query
     
-    # Apply volume and chapter filters first
     if volume is not None:
-        characters = [c for c in characters if c['volume'] == volume]
+        char_query = char_query.filter(Character.volume == volume)
         
     if chapter is not None:
-        characters = [c for c in characters if c['chapter'] == chapter]
+        char_query = char_query.filter(Character.chapter == chapter)
     
-    results = []
-    for character in characters:
-        # Search in keywords
-        keywords = [k.lower() for k in character.get('keywords', [])]
-        # Search in primitive elements
-        primitives = [p.lower() for p in character.get('primitive_elements', [])]
-        # Search in primitive meanings
-        primitive_meanings = [m.lower() for m in character.get('primitive_meanings', [])]
-        
-        if (query in keywords or 
-            query in primitives or 
-            query in primitive_meanings or
-            query in character.get('story', '').lower()):
-            results.append(character)
+    if query:
+        # Search in keywords and primitives
+        char_query = char_query.join(Character.keywords).join(Character.primitives).filter(
+            or_(
+                Character.character.ilike(f'%{query}%'),
+                Character.story.ilike(f'%{query}%'),
+                Keyword.word.ilike(f'%{query}%'),
+                Primitive.element.ilike(f'%{query}%'),
+                Primitive.meaning.ilike(f'%{query}%')
+            )
+        ).distinct()
     
-    return jsonify(results)
+    characters = char_query.all()
+    return jsonify([char.to_dict() for char in characters])
 
 @bp.route('/character/<char>')
 def character_detail(char):

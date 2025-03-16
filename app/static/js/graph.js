@@ -179,7 +179,7 @@ function initGraph() {
 }
 
 function showCharacterInfo(character) {
-    fetch(`/api/character/${character}`)
+    fetchWithCSRF(`/api/character/${character}`)
         .then(response => response.json())
         .then(data => {
             const infoContent = document.getElementById('info-content');

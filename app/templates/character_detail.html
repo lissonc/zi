@@ -17,8 +17,20 @@
     </div>
     
     <script>
+        // Get CSRF token
+        const csrfToken = "{{ csrf_token() }}";
+        
+        // Add CSRF token to fetch request
+        function fetchWithCSRF(url, options = {}) {
+            options.headers = {
+                ...options.headers,
+                'X-CSRFToken': csrfToken
+            };
+            return fetch(url, options);
+        }
+        
         // Fetch character details and display them
-        fetch('/api/character/{{ character }}')
+        fetchWithCSRF('/api/character/{{ character }}')
             .then(response => response.json())
             .then(data => {
                 const detailDiv = document.getElementById('character-detail');
