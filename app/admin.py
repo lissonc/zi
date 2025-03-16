@@ -3,7 +3,8 @@ from flask_admin.contrib.sqla import ModelView
 from flask_admin.form import Select2Widget
 from wtforms import TextAreaField
 from .models import db, Character, Primitive, Keyword
-from flask import redirect, url_for
+from flask import redirect, url_for, request
+from flask_wtf import FlaskForm
 
 class BaseModelView(ModelView):
     def is_accessible(self):
@@ -12,6 +13,18 @@ class BaseModelView(ModelView):
 
     def inaccessible_callback(self, name, **kwargs):
         return redirect(url_for('main.index'))
+
+    def create_form(self, obj=None):
+        form = super(BaseModelView, self).create_form(obj)
+        if hasattr(form, '_csrf_token'):
+            del form._csrf_token
+        return form
+
+    def edit_form(self, obj=None):
+        form = super(BaseModelView, self).edit_form(obj)
+        if hasattr(form, '_csrf_token'):
+            del form._csrf_token
+        return form
 
 class CharacterView(BaseModelView):
     column_list = ['character', 'frame_number', 'volume', 'chapter', 'keywords', 'primitives']

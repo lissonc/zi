@@ -18,7 +18,8 @@ def create_app(test_config=None):
         ),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         WTF_CSRF_ENABLED=True,
-        WTF_CSRF_CHECK_DEFAULT=False  # Don't check CSRF token by default
+        WTF_CSRF_CHECK_DEFAULT=False,  # Don't check CSRF token by default for API endpoints
+        FLASK_ADMIN_SWATCH='cerulean'  # Bootstrap theme for admin interface
     )
 
     if test_config is None:
