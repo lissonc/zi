@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Detail - {{ character }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Character: {{ character }}</h1>
+        <a href="/" class="back-link">Back to Graph</a>
+    </header>
+    
+    <div id="character-detail">
+        Loading...
+    </div>
+    
+    <script>
+        // Fetch character details and display them
+        fetch('/api/character/{{ character }}')
+            .then(response => response.json())
+            .then(data => {
+                const detailDiv = document.getElementById('character-detail');
+                if (data.error) {
+                    detailDiv.innerHTML = '<p>Character not found</p>';
+                    return;
+                }
+                
+                let html = `
+                    <div class="character-display">
+                        <span class="hanzi">${data.character}</span>
+                        <span class="frame-number">Frame: ${data.frame_number || 'N/A'}</span>
+                    </div>
+                    <div class="character-info">
+                        <h2>Keywords</h2>
+                        <ul>
+                            ${data.keywords ? data.keywords.map(k => `<li>${k}</li>`).join('') : '<li>None</li>'}
+                        </ul>
+                        
+                        <h2>Primitive Elements</h2>
+                        <ul>
+                            ${data.primitive_elements ? data.primitive_elements.map(p => `<li>${p}</li>`).join('') : '<li>None</li>'}
+                        </ul>
+                        
+                        <h2>Primitive Meanings</h2>
+                        <ul>
+                            ${data.primitive_meanings ? data.primitive_meanings.map(m => `<li>${m}</li>`).join('') : '<li>None</li>'}
+                        </ul>
+                        
+                        <h2>Story</h2>
+                        <p>${data.story || 'No story available'}</p>
+                    </div>
+                `;
+                
+                detailDiv.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error fetching character data:', error);
+                document.getElementById('character-detail').innerHTML = '<p>Error loading character data</p>';
+            });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heisig Traditional Chinese Characters</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Heisig Traditional Chinese Characters Visualization</h1>
+        <div class="search-container">
+            <input type="text" id="search" placeholder="Search by keyword, primitive element...">
+            <button onclick="searchCharacters()">Search</button>
+        </div>
+    </header>
+    
+    <div id="graph-container"></div>
+    
+    <div id="character-info">
+        <h2>Character Information</h2>
+        <div id="info-content">
+            <p>Select a character to view details</p>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+</body>
+</html> 

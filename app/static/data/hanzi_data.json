@@ -1,0 +1,47 @@
+{
+  "characters": [
+    {
+      "character": "一",
+      "frame_number": 1,
+      "keywords": [
+        "one",
+        "single"
+      ],
+      "primitive_elements": [],
+      "primitive_meanings": [
+        "one",
+        "single"
+      ],
+      "story": "The number one is represented by a single horizontal stroke."
+    },
+    {
+      "character": "二",
+      "frame_number": 2,
+      "keywords": [
+        "two"
+      ],
+      "primitive_elements": [
+        "一"
+      ],
+      "primitive_meanings": [
+        "two"
+      ],
+      "story": "The number two is represented by two horizontal strokes."
+    },
+    {
+      "character": "三",
+      "frame_number": 3,
+      "keywords": [
+        "three"
+      ],
+      "primitive_elements": [
+        "一",
+        "二"
+      ],
+      "primitive_meanings": [
+        "three"
+      ],
+      "story": "The number three is represented by three horizontal strokes."
+    }
+  ]
+}
