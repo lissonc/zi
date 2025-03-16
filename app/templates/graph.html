@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+    #graph-container {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+    }
+    
+    .graph-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+    }
+    
+    .graph-legend {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 10;
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2>Character Relationship Graph</h2>
+    <p class="text-muted">
+        This graph visualizes the relationships between characters and primitives. 
+        Characters are in blue, primitives are in red.
+        Click on any node to view its details.
+    </p>
+</div>
+
+<div class="position-relative" style="height: 800px;">
+    <div id="graph-container" style="width: 100%; height: 100%;"></div>
+    
+    <div class="graph-controls">
+        <div class="btn-group mb-2" role="group">
+            <button id="zoom-in" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-search-plus"></i>
+            </button>
+            <button id="zoom-out" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-search-minus"></i>
+            </button>
+            <button id="reset-view" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-redo"></i>
+            </button>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="physics-toggle" checked>
+            <label class="form-check-label" for="physics-toggle">
+                Enable Physics
+            </label>
+        </div>
+    </div>
+    
+    <div class="graph-legend">
+        <h6 class="mb-2">Legend</h6>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #3498db;"></div>
+            <span>Characters</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #e74c3c;"></div>
+            <span>Primitives</span>
+        </div>
+        <div class="mt-2 small text-muted">
+            <i class="fas fa-arrow-right"></i> A primitive is used in a character
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">About the Graph</h5>
+    </div>
+    <div class="card-body">
+        <p>
+            This visualization shows how characters and primitives relate to each other. 
+            The arrows indicate that a primitive is used to form a character.
+        </p>
+        <p>
+            You can:
+        </p>
+        <ul>
+            <li>Click and drag to move the graph</li>
+            <li>Scroll to zoom in and out</li>
+            <li>Click on any node to go to its detail page</li>
+            <li>Use the control buttons to adjust the view</li>
+        </ul>
+        <p>
+            This graph helps understand the building blocks of characters and how they're 
+            structured in Heisig's system.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Include vis.js network library -->
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let network = null;
+        
+        fetch('/api/graph-data')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('graph-container');
+                
+                // Configuration for the network
+                const options = {
+                    nodes: {
+                        shape: 'circle',
+                        font: {
+                            size: 18,
+                            face: 'Arial',
+                            color: '#ffffff'
+                        },
+                        borderWidth: 2
+                    },
+                    edges: {
+                        width: 1,
+                        color: {
+                            color: '#848484',
+                            highlight: '#1B5E20'
+                        },
+                        arrows: {
+                            to: { enabled: true, scaleFactor: 0.5 }
+                        }
+                    },
+                    physics: {
+                        enabled: true,
+                        stabilization: true,
+                        barnesHut: {
+                            gravitationalConstant: -10000,
+                            springConstant: 0.02,
+                            springLength: 150
+                        }
+                    },
+                    interaction: {
+                        navigationButtons: true,
+                        keyboard: true,
+                        hover: true
+                    }
+                };
+                
+                // Create the network
+                network = new vis.Network(container, data, options);
+                
+                // Add click event
+                network.on("click", function(params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        const nodeType = nodeId.startsWith('c_') ? 'characters' : 'primitives';
+                        const realId = nodeId.substr(2); // Remove the prefix
+                        
+                        // Navigate to the detail page
+                        window.location.href = `/${nodeType}/${realId}`;
+                    }
+                });
+                
+                // Set up control buttons
+                document.getElementById('zoom-in').addEventListener('click', function() {
+                    network.zoomIn(0.2);
+                });
+                
+                document.getElementById('zoom-out').addEventListener('click', function() {
+                    network.zoomOut(0.2);
+                });
+                
+                document.getElementById('reset-view').addEventListener('click', function() {
+                    network.fit();
+                });
+                
+                document.getElementById('physics-toggle').addEventListener('change', function() {
+                    network.setOptions({ physics: { enabled: this.checked } });
+                });
+            })
+            .catch(error => {
+                console.error('Error loading graph data:', error);
+                document.getElementById('graph-container').innerHTML = 
+                    '<div class="alert alert-danger">Error loading graph data. Please try again later.</div>';
+            });
+    });
+</script>
+{% endblock %} 

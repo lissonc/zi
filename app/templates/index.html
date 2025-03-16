@@ -1,133 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Heisig Traditional Chinese Characters</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-</head>
-<body>
-    <header>
-        <h1>Heisig Traditional Chinese Characters Visualization</h1>
-        <div class="controls">
-            <div class="filter-container">
-                <select id="volume-select" onchange="updateChapters()">
-                    <option value="">All Volumes</option>
-                    {% for volume in volumes %}
-                    <option value="{{ volume.number }}">{{ volume.title }}</option>
-                    {% endfor %}
-                </select>
-                
-                <select id="chapter-select" onchange="updateGraph()">
-                    <option value="">All Chapters</option>
-                </select>
-            </div>
-            
-            <div class="search-container">
-                <input type="text" id="search" placeholder="Search by keyword, primitive element...">
-                <button onclick="searchCharacters()">Search</button>
-            </div>
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="jumbotron py-5 bg-light rounded-3 mb-4">
+    <div class="container">
+        <h1 class="display-4">汉字 Hanzi Explorer</h1>
+        <p class="lead">A tool for exploring and learning Chinese characters from Heisig's "Remembering Simplified Hanzi"</p>
+        <hr class="my-4">
+        <p>Browse characters, explore their primitives, and visualize the relationships between them.</p>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary btn-lg" href="{{ url_for('main.characters') }}" role="button">
+                <i class="fas fa-book me-2"></i>Browse Characters
+            </a>
+            <a class="btn btn-outline-primary btn-lg" href="{{ url_for('main.graph') }}" role="button">
+                <i class="fas fa-project-diagram me-2"></i>View Graph
+            </a>
         </div>
-    </header>
-    
-    <main class="main-content">
-        <div class="visualization-container">
-            <div id="graph-container"></div>
-        </div>
-        
-        <div id="character-info" class="info-panel">
-            <h2>Character Information</h2>
-            <div id="info-content">
-                <p>Select a character to view details</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card dashboard-card text-center">
+            <div class="card-body">
+                <div class="card-icon text-primary">
+                    <i class="fas fa-book"></i>
+                </div>
+                <h5 class="card-title">Characters</h5>
+                <p class="card-text display-4">{{ character_count }}</p>
+                <a href="{{ url_for('main.characters') }}" class="btn btn-primary">View All</a>
             </div>
         </div>
-    </main>
-    
-    <script>
-        // Get CSRF token from meta tag
-        const csrfToken = "{{ csrf_token() }}";
-        
-        // Add CSRF token to all fetch requests
-        function fetchWithCSRF(url, options = {}) {
-            options.headers = {
-                ...options.headers,
-                'X-CSRFToken': csrfToken
-            };
-            return fetch(url, options);
-        }
-        
-        function getFilterParams() {
-            const volume = document.getElementById('volume-select').value;
-            const chapter = document.getElementById('chapter-select').value;
-            const params = new URLSearchParams();
-            
-            if (volume) params.append('volume', volume);
-            if (chapter) params.append('chapter', chapter);
-            
-            return params.toString();
-        }
-        
-        function updateChapters() {
-            const volumeSelect = document.getElementById('volume-select');
-            const chapterSelect = document.getElementById('chapter-select');
-            const selectedVolume = volumeSelect.value;
-            
-            // Clear existing chapters
-            chapterSelect.innerHTML = '<option value="">All Chapters</option>';
-            
-            if (selectedVolume) {
-                const volume = {{ volumes|tojson|safe }}.find(v => v.number == selectedVolume);
-                if (volume && volume.chapters) {
-                    volume.chapters.forEach(chapter => {
-                        const option = document.createElement('option');
-                        option.value = chapter.number;
-                        option.textContent = chapter.title;
-                        chapterSelect.appendChild(option);
-                    });
-                }
-            }
-            
-            updateGraph();
-        }
-        
-        function searchCharacters() {
-            const searchQuery = document.getElementById('search').value;
-            const params = getFilterParams();
-            if (searchQuery) {
-                params.append('q', searchQuery);
-            }
-            
-            fetchWithCSRF(`/api/search?${params}`)
-                .then(response => response.json())
-                .then(characters => {
-                    // Clear existing graph
-                    document.getElementById('graph-container').innerHTML = '';
-                    // Rebuild graph with filtered data
-                    buildGraphData(characters);
-                    initGraph();
-                })
-                .catch(error => {
-                    console.error('Error searching characters:', error);
-                });
-        }
-        
-        function updateGraph() {
-            const params = getFilterParams();
-            fetchWithCSRF(`/api/characters?${params}`)
-                .then(response => response.json())
-                .then(characters => {
-                    // Clear existing graph
-                    document.getElementById('graph-container').innerHTML = '';
-                    // Rebuild graph with filtered data
-                    buildGraphData(characters);
-                    initGraph();
-                })
-                .catch(error => {
-                    console.error('Error fetching filtered characters:', error);
-                });
-        }
-    </script>
-    <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
-</body>
-</html> 
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card dashboard-card text-center">
+            <div class="card-body">
+                <div class="card-icon text-danger">
+                    <i class="fas fa-puzzle-piece"></i>
+                </div>
+                <h5 class="card-title">Primitives</h5>
+                <p class="card-text display-4">{{ primitive_count }}</p>
+                <a href="{{ url_for('main.primitives') }}" class="btn btn-danger">View All</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card dashboard-card text-center">
+            <div class="card-body">
+                <div class="card-icon text-success">
+                    <i class="fas fa-project-diagram"></i>
+                </div>
+                <h5 class="card-title">Graph Visualization</h5>
+                <p class="card-text">Explore character relationships</p>
+                <a href="{{ url_for('main.graph') }}" class="btn btn-success">View Graph</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if recent_characters %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0">Recently Added Characters</h4>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for character in recent_characters %}
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="character-card">
+                    <div class="d-flex align-items-center">
+                        <div class="hanzi-medium me-3">{{ character.hanzi }}</div>
+                        <div>
+                            <h5 class="mb-1">{{ character.keyword }}</h5>
+                            <p class="mb-1 text-muted">Heisig Index: {{ character.heisig_index }}</p>
+                            <a href="{{ url_for('main.character_detail', id=character.id) }}" class="btn btn-sm btn-outline-primary mt-2">Details</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h4 class="mb-0">About Heisig's Method</h4>
+    </div>
+    <div class="card-body">
+        <p>
+            James Heisig's "Remembering Simplified Hanzi" provides a systematic approach to learning Chinese characters by breaking them down into components (primitives) and creating memorable stories.
+        </p>
+        <p>
+            Each character is associated with a keyword that reflects its meaning, and a story is created using the primitive elements to help memorize the character.
+        </p>
+        <p>
+            This application helps visualize these relationships and provides a digital reference for learners using Heisig's method.
+        </p>
+    </div>
+</div>
+{% endblock %} 

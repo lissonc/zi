@@ -1,56 +1,51 @@
-import os
 from flask import Flask
-from flask_migrate import Migrate
-from flask_wtf.csrf import CSRFProtect
-from .models import db
-from .admin import init_admin
-from . import cli
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from flask_admin import Admin
+from dotenv import load_dotenv
+import os
+from markupsafe import Markup
 
-def create_app(test_config=None):
-    app = Flask(__name__, instance_relative_config=True)
+# Load environment variables
+load_dotenv()
+
+# Initialize extensions
+db = SQLAlchemy()
+login_manager = LoginManager()
+admin = Admin(name='Hanzi Explorer Admin', template_mode='bootstrap4')
+
+def create_app():
+    app = Flask(__name__)
     
-    # Default configuration
-    app.config.from_mapping(
-        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev'),
-        SQLALCHEMY_DATABASE_URI=os.environ.get(
-            'DATABASE_URL', 
-            'sqlite:///' + os.path.join(app.instance_path, 'hanzi.sqlite')
-        ),
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        WTF_CSRF_ENABLED=True,
-        WTF_CSRF_CHECK_DEFAULT=False,  # Don't check CSRF token by default for API endpoints
-        FLASK_ADMIN_SWATCH='cerulean'  # Bootstrap theme for admin interface
-    )
-
-    if test_config is None:
-        # Load the instance config, if it exists, when not testing
-        app.config.from_pyfile('config.py', silent=True)
-    else:
-        # Load the test config if passed in
-        app.config.update(test_config)
-
-    # Ensure the instance folder exists
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
-
-    # Initialize CSRF protection
-    csrf = CSRFProtect()
-    csrf.init_app(app)
-
-    # Initialize database
+    # Configuration
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-for-development')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URI', 'sqlite:///hanzi.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Initialize extensions with app
     db.init_app(app)
-    Migrate(app, db)
-
-    # Initialize admin interface
-    init_admin(app)
-
-    # Register CLI commands
-    cli.init_app(app)
-
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    admin.init_app(app)
+    
     # Register blueprints
-    from . import routes
-    app.register_blueprint(routes.bp)
-
+    from app.routes.main import main_bp
+    from app.routes.auth import auth_bp
+    from app.routes.admin import dashboard_bp
+    
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+    
+    # Register Jinja2 filters
+    @app.template_filter('nl2br')
+    def nl2br_filter(s):
+        if s:
+            return Markup(s.replace('\n', '<br>'))
+        return s
+        
     return app 

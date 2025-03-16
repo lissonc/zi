@@ -1,0 +1,120 @@
+/* Custom styles for Hanzi Explorer */
+
+/* Character display */
+.hanzi-large {
+    font-size: 6rem;
+    font-weight: normal;
+    line-height: 1;
+    margin-bottom: 1rem;
+}
+
+.hanzi-medium {
+    font-size: 3rem;
+    font-weight: normal;
+    line-height: 1;
+}
+
+.hanzi-small {
+    font-size: 2rem;
+    font-weight: normal;
+    line-height: 1;
+}
+
+/* Character card */
+.character-card {
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.character-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Graph visualization */
+#graph-container {
+    width: 100%;
+    height: 700px;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+/* Dashboard cards */
+.dashboard-card {
+    height: 100%;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card .card-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Admin panel */
+.admin-sidebar {
+    min-height: calc(100vh - 56px - 80px); /* Viewport height minus header and footer */
+}
+
+/* Character detail page */
+.character-detail {
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+.character-primitives {
+    margin-top: 1.5rem;
+}
+
+.primitive-tag {
+    display: inline-block;
+    background-color: #e9ecef;
+    padding: 0.5rem 1rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.primitive-tag:hover {
+    background-color: #dee2e6;
+}
+
+/* Search results styling */
+.search-result {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #007bff;
+    background-color: #f8f9fa;
+}
+
+/* Authentication forms */
+.auth-form {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+/* Pagination styling */
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+} 

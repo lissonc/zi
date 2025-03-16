@@ -5,8 +5,8 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('main.characters') }}">Characters</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{ character.hanzi }}</li>
+            <li class="breadcrumb-item"><a href="{{ url_for('main.primitives') }}">Primitives</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ primitive.name }}</li>
         </ol>
     </nav>
 </div>
@@ -16,100 +16,95 @@
         <div class="character-detail mb-4">
             <div class="row">
                 <div class="col-md-4 text-center">
-                    <div class="hanzi-large">{{ character.hanzi }}</div>
-                    {% if character.traditional %}
-                    <p class="text-muted">Traditional: {{ character.traditional }}</p>
-                    {% endif %}
+                    <div class="hanzi-large">{{ primitive.symbol }}</div>
                 </div>
                 <div class="col-md-8">
-                    <h2 class="mb-3">{{ character.keyword }}</h2>
-                    <div class="mb-3">
-                        <span class="badge bg-primary me-2">Heisig Index: {{ character.heisig_index }}</span>
-                        {% if character.strokes %}
-                        <span class="badge bg-secondary me-2">Strokes: {{ character.strokes }}</span>
-                        {% endif %}
-                        {% if character.pinyin %}
-                        <span class="badge bg-info me-2">Pinyin: {{ character.pinyin }}</span>
-                        {% endif %}
-                    </div>
-                    
-                    {% if character.primitives %}
-                    <div class="character-primitives">
-                        <h5>Primitives:</h5>
-                        <div>
-                            {% for primitive in character.primitives %}
-                            <a href="{{ url_for('main.primitive_detail', id=primitive.id) }}" class="primitive-tag">
-                                <span class="hanzi-small me-1">{{ primitive.symbol }}</span> {{ primitive.name }}
-                            </a>
-                            {% endfor %}
+                    <h2 class="mb-3">{{ primitive.name }}</h2>
+                    {% if primitive.meaning %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Meaning</h5>
+                        </div>
+                        <div class="card-body">
+                            {{ primitive.meaning|nl2br }}
                         </div>
                     </div>
                     {% endif %}
                 </div>
             </div>
-            
-            {% if character.story %}
-            <div class="mt-4">
-                <h5>Mnemonic Story:</h5>
-                <div class="card">
-                    <div class="card-body">
-                        {{ character.story|nl2br }}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
         
+        <!-- Characters using this primitive -->
+        {% if primitive.characters.count() > 0 %}
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">Character Graph</h5>
+                <h5 class="mb-0">Characters Using This Primitive</h5>
             </div>
             <div class="card-body">
-                <div id="mini-graph-container" style="height: 300px;"></div>
+                <div class="row">
+                    {% for character in primitive.characters.all() %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="character-card">
+                            <div class="d-flex align-items-center">
+                                <div class="hanzi-medium me-3">{{ character.hanzi }}</div>
+                                <div>
+                                    <h5 class="mb-1">{{ character.keyword }}</h5>
+                                    <p class="mb-1 text-muted">Heisig Index: {{ character.heisig_index }}</p>
+                                    <a href="{{ url_for('main.character_detail', id=character.id) }}" class="btn btn-sm btn-outline-primary mt-2">Details</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
+        {% else %}
+        <div class="alert alert-info">
+            <p class="mb-0">No characters are currently using this primitive.</p>
+        </div>
+        {% endif %}
     </div>
     
     <div class="col-md-4">
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">Character Information</h5>
+                <h5 class="mb-0">Primitive Information</h5>
             </div>
             <div class="card-body">
                 <table class="table">
                     <tbody>
                         <tr>
-                            <th>Heisig Index:</th>
-                            <td>{{ character.heisig_index }}</td>
+                            <th>Name:</th>
+                            <td>{{ primitive.name }}</td>
                         </tr>
-                        {% if character.strokes %}
                         <tr>
-                            <th>Stroke Count:</th>
-                            <td>{{ character.strokes }}</td>
+                            <th>Symbol:</th>
+                            <td class="hanzi-small">{{ primitive.symbol }}</td>
                         </tr>
-                        {% endif %}
-                        {% if character.pinyin %}
                         <tr>
-                            <th>Pinyin:</th>
-                            <td>{{ character.pinyin }}</td>
+                            <th>Characters:</th>
+                            <td>{{ primitive.characters.count() }}</td>
                         </tr>
-                        {% endif %}
-                        {% if character.traditional %}
-                        <tr>
-                            <th>Traditional Form:</th>
-                            <td>{{ character.traditional }}</td>
-                        </tr>
-                        {% endif %}
                         <tr>
                             <th>Added:</th>
-                            <td>{{ character.date_added.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ primitive.date_added.strftime('%Y-%m-%d') }}</td>
                         </tr>
                         <tr>
                             <th>Last Modified:</th>
-                            <td>{{ character.date_modified.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ primitive.date_modified.strftime('%Y-%m-%d') }}</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Primitive Graph</h5>
+            </div>
+            <div class="card-body">
+                <div id="mini-graph-container" style="height: 300px;"></div>
             </div>
         </div>
         
@@ -119,12 +114,12 @@
                 <h5 class="mb-0">Admin Actions</h5>
             </div>
             <div class="card-body">
-                <a href="{{ url_for('admin.edit_character', id=character.id) }}" class="btn btn-primary mb-2 w-100">
-                    <i class="fas fa-edit me-2"></i>Edit Character
+                <a href="{{ url_for('admin.edit_primitive', id=primitive.id) }}" class="btn btn-primary mb-2 w-100">
+                    <i class="fas fa-edit me-2"></i>Edit Primitive
                 </a>
-                <form action="{{ url_for('admin.delete_character', id=character.id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this character?');">
+                <form action="{{ url_for('admin.delete_primitive', id=primitive.id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this primitive?');">
                     <button type="submit" class="btn btn-danger w-100">
-                        <i class="fas fa-trash me-2"></i>Delete Character
+                        <i class="fas fa-trash me-2"></i>Delete Primitive
                     </button>
                 </form>
             </div>
@@ -139,17 +134,17 @@
 <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Create a mini graph for this character only
+        // Create a mini graph for this primitive only
         fetch('/api/graph-data')
             .then(response => response.json())
             .then(data => {
-                // Filter for this character and its immediate connections
-                const characterNodeId = 'c_{{ character.id }}';
+                // Filter for this primitive and its immediate connections
+                const primitiveNodeId = 'p_{{ primitive.id }}';
                 const relatedNodeIds = new Set();
                 
                 // Find connected nodes
                 data.edges.forEach(edge => {
-                    if (edge.from === characterNodeId || edge.to === characterNodeId) {
+                    if (edge.from === primitiveNodeId || edge.to === primitiveNodeId) {
                         relatedNodeIds.add(edge.from);
                         relatedNodeIds.add(edge.to);
                     }
@@ -200,16 +195,16 @@
                 // Create the network
                 const network = new vis.Network(container, filteredData, options);
                 
-                // Highlight the current character
+                // Highlight the current primitive
                 network.on("afterDrawing", function() {
-                    network.selectNodes([characterNodeId]);
+                    network.selectNodes([primitiveNodeId]);
                 });
                 
                 // Add click event to navigate to other nodes
                 network.on("click", function(params) {
                     if (params.nodes.length > 0) {
                         const nodeId = params.nodes[0];
-                        if (nodeId !== characterNodeId) {
+                        if (nodeId !== primitiveNodeId) {
                             const nodeType = nodeId.startsWith('c_') ? 'characters' : 'primitives';
                             const realId = nodeId.substr(2); // Remove the prefix
                             
