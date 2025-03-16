@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Chinese Characters</h2>
     {% if current_user.is_authenticated and current_user.is_admin %}
-    <a href="{{ url_for('admin.add_character') }}" class="btn btn-primary">
+    <a href="{{ url_for('dashboard.add_character') }}" class="btn btn-primary">
         <i class="fas fa-plus me-2"></i>Add Character
     </a>
     {% endif %}

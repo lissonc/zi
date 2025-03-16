@@ -112,6 +112,12 @@ def graph_data():
     end_idx = html_data.find(');', start_idx)
     edges_data = html_data[start_idx + len('var edges = new vis.DataSet('):end_idx]
     
+    # Check if data is empty and provide fallback
+    if not nodes_data.strip():
+        nodes_data = '[]'
+    if not edges_data.strip():
+        edges_data = '[]'
+    
     # Combine the data
     graph_data = {
         'nodes': json.loads(nodes_data),
