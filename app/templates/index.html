@@ -10,21 +10,99 @@
 <body>
     <header>
         <h1>Heisig Traditional Chinese Characters Visualization</h1>
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Search by keyword, primitive element...">
-            <button onclick="searchCharacters()">Search</button>
+        <div class="controls">
+            <div class="filter-container">
+                <select id="volume-select" onchange="updateChapters()">
+                    <option value="">All Volumes</option>
+                    {% for volume in volumes %}
+                    <option value="{{ volume.number }}">{{ volume.title }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select id="chapter-select" onchange="updateGraph()">
+                    <option value="">All Chapters</option>
+                </select>
+            </div>
+            
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search by keyword, primitive element...">
+                <button onclick="searchCharacters()">Search</button>
+            </div>
         </div>
     </header>
     
-    <div id="graph-container"></div>
-    
-    <div id="character-info">
-        <h2>Character Information</h2>
-        <div id="info-content">
-            <p>Select a character to view details</p>
+    <main class="main-content">
+        <div class="visualization-container">
+            <div id="graph-container"></div>
         </div>
-    </div>
+        
+        <div id="character-info" class="info-panel">
+            <h2>Character Information</h2>
+            <div id="info-content">
+                <p>Select a character to view details</p>
+            </div>
+        </div>
+    </main>
     
+    <script>
+        // Store volumes data for chapter updates
+        const volumes = {{ volumes|tojson|safe }};
+        
+        function updateChapters() {
+            const volumeSelect = document.getElementById('volume-select');
+            const chapterSelect = document.getElementById('chapter-select');
+            const selectedVolume = volumeSelect.value;
+            
+            // Clear existing options
+            chapterSelect.innerHTML = '<option value="">All Chapters</option>';
+            
+            if (selectedVolume) {
+                const volume = volumes.find(v => v.number === parseInt(selectedVolume));
+                if (volume && volume.chapters) {
+                    volume.chapters.forEach(chapter => {
+                        const option = document.createElement('option');
+                        option.value = chapter.number;
+                        option.textContent = `Chapter ${chapter.number}: ${chapter.title}`;
+                        chapterSelect.appendChild(option);
+                    });
+                }
+            }
+            
+            // Update graph with new filters
+            updateGraph();
+        }
+        
+        function getFilterParams() {
+            const volumeSelect = document.getElementById('volume-select');
+            const chapterSelect = document.getElementById('chapter-select');
+            const params = new URLSearchParams();
+            
+            if (volumeSelect.value) {
+                params.append('volume', volumeSelect.value);
+            }
+            if (chapterSelect.value) {
+                params.append('chapter', chapterSelect.value);
+            }
+            
+            return params;
+        }
+        
+        function updateGraph() {
+            const params = getFilterParams();
+            fetch(`/api/characters?${params}`)
+                .then(response => response.json())
+                .then(characters => {
+                    // Clear existing graph
+                    document.getElementById('graph-container').innerHTML = '';
+                    // Rebuild graph with filtered data
+                    buildGraphData(characters);
+                    initGraph();
+                })
+                .catch(error => {
+                    console.error('Error fetching filtered characters:', error);
+                });
+        }
+    </script>
     <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
 </body>
 </html> 

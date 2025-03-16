@@ -12,7 +12,9 @@
         "one",
         "single"
       ],
-      "story": "The number one is represented by a single horizontal stroke."
+      "story": "The number one is represented by a single horizontal stroke.",
+      "volume": 1,
+      "chapter": 1
     },
     {
       "character": "二",
@@ -26,7 +28,9 @@
       "primitive_meanings": [
         "two"
       ],
-      "story": "The number two is represented by two horizontal strokes."
+      "story": "The number two is represented by two horizontal strokes.",
+      "volume": 1,
+      "chapter": 1
     },
     {
       "character": "三",
@@ -41,7 +45,49 @@
       "primitive_meanings": [
         "three"
       ],
-      "story": "The number three is represented by three horizontal strokes."
+      "story": "The number three is represented by three horizontal strokes.",
+      "volume": 1,
+      "chapter": 1
     }
-  ]
+  ],
+  "metadata": {
+    "volumes": [
+      {
+        "number": 1,
+        "title": "Book 1",
+        "chapters": [
+          {
+            "number": 1,
+            "title": "The First Elements"
+          },
+          {
+            "number": 2,
+            "title": "The First Primitives"
+          },
+          {
+            "number": 3,
+            "title": "Building Blocks"
+          }
+        ]
+      },
+      {
+        "number": 2,
+        "title": "Book 2",
+        "chapters": [
+          {
+            "number": 1,
+            "title": "Advanced Elements"
+          },
+          {
+            "number": 2,
+            "title": "Complex Characters"
+          },
+          {
+            "number": 3,
+            "title": "Final Characters"
+          }
+        ]
+      }
+    ]
+  }
 }

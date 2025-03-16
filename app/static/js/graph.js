@@ -1,21 +1,17 @@
 // Graph data structure
 let graphData = { nodes: [], links: [] };
 
-// Fetch character data and build graph
-function loadGraphData() {
-    fetch('/api/characters')
-        .then(response => response.json())
-        .then(characters => {
-            buildGraphData(characters);
-            initGraph();
-        })
-        .catch(error => {
-            console.error('Error fetching character data:', error);
-            document.getElementById('graph-container').innerHTML = '<p>Error loading graph data</p>';
-        });
-}
+// Initialize graph when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial load of all characters
+    updateGraph();
+});
 
 function buildGraphData(characters) {
+    // Clear existing data
+    graphData.nodes = [];
+    graphData.links = [];
+    
     characters.forEach(char => {
         // Add character node
         graphData.nodes.push({
@@ -23,7 +19,9 @@ function buildGraphData(characters) {
             type: 'character',
             label: char.character,
             keywords: char.keywords || [],
-            frameNumber: char.frame_number
+            frameNumber: char.frame_number,
+            volume: char.volume,
+            chapter: char.chapter
         });
         
         // Add keyword nodes and links
@@ -71,11 +69,12 @@ function buildGraphData(characters) {
 }
 
 function initGraph() {
-    const width = document.getElementById('graph-container').clientWidth;
-    const height = document.getElementById('graph-container').clientHeight;
+    const container = document.getElementById('graph-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
     
     // Create SVG element
-    const svg = d3.select('#graph-container')
+    const svg = d3.select(container)
         .append('svg')
         .attr('width', width)
         .attr('height', height);
@@ -134,6 +133,15 @@ function initGraph() {
         }
     });
     
+    // Add tooltips
+    node.append('title')
+        .text(d => {
+            if (d.type === 'character') {
+                return `${d.label} (Frame ${d.frameNumber}, Vol ${d.volume} Ch ${d.chapter})`;
+            }
+            return d.label;
+        });
+    
     // Update positions on each tick of the simulation
     simulation.on('tick', () => {
         link
@@ -179,6 +187,8 @@ function showCharacterInfo(character) {
             let html = `
                 <h3>${data.character}</h3>
                 <p><strong>Frame:</strong> ${data.frame_number || 'N/A'}</p>
+                <p><strong>Volume:</strong> ${data.volume || 'N/A'}</p>
+                <p><strong>Chapter:</strong> ${data.chapter || 'N/A'}</p>
                 <p><strong>Keywords:</strong> ${data.keywords ? data.keywords.join(', ') : 'None'}</p>
                 <p><strong>Primitive Elements:</strong> ${data.primitive_elements ? data.primitive_elements.join(', ') : 'None'}</p>
                 <p><strong>Primitive Meanings:</strong> ${data.primitive_meanings ? data.primitive_meanings.join(', ') : 'None'}</p>
@@ -201,7 +211,10 @@ function searchCharacters(query) {
     
     if (!query) return;
     
-    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+    const params = new URLSearchParams(getFilterParams());
+    params.append('q', query);
+    
+    fetch(`/api/search?${params}`)
         .then(response => response.json())
         .then(results => {
             const infoContent = document.getElementById('info-content');
@@ -218,6 +231,7 @@ function searchCharacters(query) {
                     <li>
                         <a href="#" onclick="showCharacterInfo('${char.character}'); return false;">
                             ${char.character} - ${char.keywords ? char.keywords.join(', ') : 'No keywords'}
+                            (Vol ${char.volume}, Ch ${char.chapter})
                         </a>
                     </li>
                 `;
@@ -230,7 +244,4 @@ function searchCharacters(query) {
             console.error('Error searching characters:', error);
             document.getElementById('info-content').innerHTML = '<p>Error searching characters</p>';
         });
-}
-
-// Initialize graph when the page loads
-document.addEventListener('DOMContentLoaded', loadGraphData); 
+} 
