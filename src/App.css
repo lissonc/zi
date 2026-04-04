@@ -654,9 +654,8 @@ html, body, #root {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-y: auto;
-  scrollbar-gutter: stable; /* reserve scrollbar space to match textarea */
-  scrollbar-width: none;    /* hide mirror's own scrollbar (Firefox) */
+  overflow-y: scroll;       /* always reserve scrollbar layout space */
+  scrollbar-width: none;    /* Firefox: hide scrollbar visually */
   color: var(--text);
   pointer-events: none;
   z-index: 0;
@@ -678,8 +677,10 @@ html, body, #root {
   background: transparent !important;
   color: transparent !important;
   caret-color: var(--text);
-  scrollbar-gutter: stable; /* keep text width identical to mirror */
+  overflow-y: scroll;       /* always reserve scrollbar layout space */
+  scrollbar-width: none;    /* Firefox: hide scrollbar visually */
 }
+.story-textarea::-webkit-scrollbar { display: none; }
 .story-textarea::placeholder { color: var(--text-dim); opacity: 1; }
 
 .story-mention-dropdown {
