@@ -45,7 +45,56 @@
 
 const fs   = require('fs')
 const path = require('path')
-const matter = require('gray-matter')
+
+// ── Minimal YAML frontmatter parser (no dependencies) ────────────────────────
+// Handles the subset of YAML used by Obsidian: scalars, block lists, inline
+// arrays. Sufficient for aliases, book, lesson, heisig, mastered fields.
+
+function parseFrontmatter(raw) {
+  if (!raw.startsWith('---')) return { data: {}, content: raw }
+  const fmEnd = raw.indexOf('\n---', 3)
+  if (fmEnd === -1) return { data: {}, content: raw }
+  const fmText  = raw.slice(3, fmEnd)
+  const content = raw.slice(fmEnd + 4).replace(/^\n/, '')
+  return { data: parseYaml(fmText), content }
+}
+
+function parseYaml(text) {
+  const data = {}
+  const lines = text.split('\n')
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    if (!line.trim() || line.trimStart().startsWith('#')) { i++; continue }
+    const colon = line.indexOf(':')
+    if (colon === -1) { i++; continue }
+    const key  = line.slice(0, colon).trim()
+    const rest = line.slice(colon + 1).trim()
+    if (rest === '' || rest === '|' || rest === '>') {
+      // Block list — collect indented "- item" lines that follow
+      const items = []
+      i++
+      while (i < lines.length && /^\s+-\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s+-\s*/, '').trim())
+        i++
+      }
+      data[key] = items.length ? items : null
+    } else if (rest.startsWith('[') && rest.includes(']')) {
+      // Inline array: [a, b, c] or ["a", 'b']
+      const inner = rest.slice(rest.indexOf('[') + 1, rest.lastIndexOf(']'))
+      data[key] = inner.split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
+      i++
+    } else {
+      // Scalar
+      const v = rest.replace(/^['"]|['"]$/g, '')
+      data[key] = v === 'true' ? true : v === 'false' ? false
+                : /^\d+$/.test(v) ? parseInt(v, 10)
+                : /^\d+\.\d+$/.test(v) ? parseFloat(v) : v
+      i++
+    }
+  }
+  return data
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -164,7 +213,7 @@ function run() {
     let fm = {}
     let bodyRaw = ''
     try {
-      const file = matter(fs.readFileSync(filePath, 'utf8'))
+      const file = parseFrontmatter(fs.readFileSync(filePath, 'utf8'))
       fm = file.data ?? {}
       bodyRaw = file.content ?? ''
     } catch (err) {

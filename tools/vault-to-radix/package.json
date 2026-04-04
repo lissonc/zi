@@ -5,11 +5,5 @@
   "main": "index.js",
   "bin": {
     "vault-to-radix": "./index.js"
-  },
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "gray-matter": "^4.0.3"
   }
 }
