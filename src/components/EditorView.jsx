@@ -277,7 +277,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
     onSaveAndNavigate(data, target)
   }
 
-  const typeLabel = { primitive: '💠 Primitive', character: 'Character', dual: '💠 Dual' }[derivedType]
+  const typeLabel = { primitive: '💠 Primitive', character: 'Character', dual: 'Dual' }[derivedType]
   const typeClass = { primitive: 'type-pill-primitive', character: 'type-pill-character', dual: 'type-pill-dual' }[derivedType]
 
   return (

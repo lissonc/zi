@@ -3,7 +3,7 @@ import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
 import GraphView from './GraphView.jsx'
 
 function TypeBadge({ type }) {
-  const labels = { primitive: '💠 Primitive', character: 'Character', dual: '💠 Dual' }
+  const labels = { primitive: '💠 Primitive', character: 'Character', dual: 'Dual' }
   return <span className={`type-badge type-badge-${type}`}>{labels[type]}</span>
 }
 
@@ -168,7 +168,7 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
           <button
             className={`stat dual-stat ${filterType === 'dual' ? 'active' : ''}`}
             onClick={() => setFilterType(f => f === 'dual' ? 'all' : 'dual')}
-          >💠 {counts.dual} Dual</button>
+          >{counts.dual} Dual</button>
           <button
             className={`stat character-stat ${filterType === 'character' ? 'active' : ''}`}
             onClick={() => setFilterType(f => f === 'character' ? 'all' : 'character')}
