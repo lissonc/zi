@@ -272,8 +272,9 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   const physRef  = useRef({ nodes: [], edges: [], alpha: ALPHA_INIT })
   const frameRef = useRef(null)
   const canvasRef = useRef(null)
-  const nodeMapRef   = useRef({})   // id → phys node, O(1) lookup in drag handlers
-  const hasFittedRef = useRef(false) // auto-fit once on first load
+  const nodeMapRef    = useRef({})   // id → phys node, O(1) lookup in drag handlers
+  const hasFittedRef  = useRef(false) // auto-fit once on first load
+  const fitAfterResizeRef = useRef(false) // fit after next ResizeObserver tick
   const wrapRef  = useRef(null)
 
   const [selectedId, setSelectedId] = useState(null)
@@ -299,9 +300,12 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   const canvasDragRef = useRef(null)   // background pan drag
   const nodeDragRef   = useRef(null)   // node drag
 
-  // Track fullscreen
+  // Track fullscreen; schedule a fit once the canvas has been resized
   useEffect(() => {
-    function onChange() { setIsFullscreen(Boolean(document.fullscreenElement)) }
+    function onChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+      fitAfterResizeRef.current = true
+    }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
@@ -475,6 +479,10 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
         canvas.height = Math.round(cssH * dpr)
       }
       redraw()
+      if (fitAfterResizeRef.current) {
+        fitAfterResizeRef.current = false
+        requestAnimationFrame(fitView)
+      }
     }
 
     syncSize()
