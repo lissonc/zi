@@ -692,14 +692,12 @@ html, body, #root {
   box-sizing: border-box;
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-y: scroll;    /* must scroll so handleStoryScroll writes work */
-  scrollbar-width: none;
+  overflow: hidden;
   color: var(--text);
   pointer-events: none;
   z-index: 0;
   border-radius: var(--radius);
 }
-.story-mirror::-webkit-scrollbar { display: none; }
 
 .story-mention-chip {
   color: var(--character-light);
@@ -714,10 +712,9 @@ html, body, #root {
   background: transparent !important;
   color: transparent !important;
   caret-color: var(--text);
-  overflow-y: scroll;       /* always reserve scrollbar layout space */
-  scrollbar-width: none;    /* Firefox: hide scrollbar visually */
+  overflow: hidden;  /* no scrollbar; textarea expands to fit content */
+  resize: none;      /* height is content-driven, not manually draggable */
 }
-.story-textarea::-webkit-scrollbar { display: none; }
 .story-textarea::placeholder { color: var(--text-dim); opacity: 1; }
 
 .story-mention-dropdown {

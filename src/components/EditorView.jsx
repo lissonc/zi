@@ -50,6 +50,9 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
       mirror.style.left   = ta.clientLeft   + 'px'
     }
 
+    // Auto-expand for any pre-filled content (editing an existing entry)
+    ta.style.height = 'auto'
+    ta.style.height = ta.scrollHeight + 'px'
     syncMirror()
     const ro = new ResizeObserver(syncMirror)
     ro.observe(ta)
@@ -139,6 +142,13 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
     const val = e.target.value
     setStory(val)
     setMentionIndex(0)
+    // Auto-expand the textarea then immediately sync mirror height so there
+    // is no visible lag between the textarea growing and the mirror following
+    const ta = e.target
+    ta.style.height = 'auto'
+    ta.style.height = ta.scrollHeight + 'px'
+    if (storyMirrorRef.current)
+      storyMirrorRef.current.style.height = ta.clientHeight + 'px'
     const cursor = e.target.selectionStart
     const before = val.slice(0, cursor)
     const lastOpen  = before.lastIndexOf('[[')
@@ -437,7 +447,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
               onScroll={handleStoryScroll}
               onBlur={() => setTimeout(() => setMentionSearch(null), 150)}
               placeholder="Describe a vivid scene linking the keyword to the character's components…"
-              rows={4}
+              rows={1}
             />
             {mentionSearch !== null && mentionResults.length > 0 && (
               <div className="story-mention-dropdown">
