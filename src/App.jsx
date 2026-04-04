@@ -80,14 +80,16 @@ export default function App() {
   }, [])
 
   const downloadDatabase = useCallback(() => {
+    const now = new Date()
+    const stamp = now.toISOString().replace(/:/g, '-').replace(/\..+/, '')
     const blob = new Blob(
-      [JSON.stringify({ entries, exportedAt: new Date().toISOString() }, null, 2)],
+      [JSON.stringify({ entries, exportedAt: now.toISOString() }, null, 2)],
       { type: 'application/json' }
     )
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'radix_library.json'
+    a.download = `radix_library_${stamp}.json`
     a.click()
     URL.revokeObjectURL(url)
   }, [entries])
