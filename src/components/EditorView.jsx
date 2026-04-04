@@ -279,6 +279,12 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
     onSaveAndNavigate(data, target)
   }
 
+  // Keep a stable ref to handleNavigate so the keyboard handler always calls
+  // the latest version (which captures current form state) without needing to
+  // re-register the event listener on every keystroke.
+  const handleNavigateRef = useRef(handleNavigate)
+  useEffect(() => { handleNavigateRef.current = handleNavigate })
+
   // Editor keyboard shortcuts (fire even when inputs are focused)
   useEffect(() => {
     function onKeyDown(e) {
@@ -297,10 +303,10 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
       }
       // Alt+ArrowLeft / Alt+ArrowRight — prev / next entry
       if (e.altKey && e.key === 'ArrowLeft' && prevEntry) {
-        e.preventDefault(); handleNavigate(prevEntry); return
+        e.preventDefault(); handleNavigateRef.current(prevEntry); return
       }
       if (e.altKey && e.key === 'ArrowRight' && nextEntry) {
-        e.preventDefault(); handleNavigate(nextEntry); return
+        e.preventDefault(); handleNavigateRef.current(nextEntry); return
       }
     }
     window.addEventListener('keydown', onKeyDown)
