@@ -104,11 +104,11 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
   )
 }
 
-function FlipCard({ card, entries, cardIndex, total, mode, onSuccess, onFail, onExit }) {
+function FlipCard({ card, entryMap, cardIndex, total, mode, onSuccess, onFail, onExit }) {
   const [revealed, setRevealed] = useState(false)
 
   const components = card.componentIds
-    .map(id => entries.find(e => e.id === id))
+    .map(id => entryMap.get(id))
     .filter(Boolean)
 
   return (
@@ -197,7 +197,7 @@ function SessionSummary({ results, onRestart, onExit }) {
   )
 }
 
-export default function ReviewView({ entries, onToggleMastered, onExit }) {
+export default function ReviewView({ entries, entryMap, onToggleMastered, onExit }) {
   // Only entries with a standalone keyword are reviewable
   const reviewable = useMemo(() => entries.filter(e => e.keyword?.trim()), [entries])
 
@@ -255,7 +255,7 @@ export default function ReviewView({ entries, onToggleMastered, onExit }) {
     <FlipCard
       key={`${cardIndex}-${queue[cardIndex]?.id}`}
       card={queue[cardIndex]}
-      entries={entries}
+      entryMap={entryMap}
       cardIndex={cardIndex}
       total={queue.length}
       mode={mode}

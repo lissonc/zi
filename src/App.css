@@ -339,6 +339,12 @@ html, body, #root {
 
 .item-list { display: flex; flex-direction: column; gap: 8px; }
 
+/* Skip paint/layout for off-screen cards — zero JS cost */
+.item-list > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 100px;
+}
+
 .item-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -841,15 +847,33 @@ html, body, #root {
   background: #080f1e;
 }
 
-.graph-svg {
+.graph-canvas {
   display: block;
   width: 100%;
   user-select: none;
   cursor: grab;
 }
-.graph-svg:active { cursor: grabbing; }
+.graph-canvas { cursor: grab; }
+.graph-canvas:active { cursor: grabbing; }
 
-.graph-bg { cursor: grab; }
+.graph-cap-banner {
+  position: absolute;
+  top: 8px; left: 50%; transform: translateX(-50%);
+  background: rgba(15,23,42,0.88);
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  z-index: 10;
+  white-space: nowrap;
+}
+.graph-cap-btn {
+  background: none; border: none;
+  color: #60a5fa; cursor: pointer; font-size: 12px;
+  padding: 0; text-decoration: underline;
+}
+.graph-cap-btn:hover { color: #93c5fd; }
 
 /* Edges */
 .graph-edge {
@@ -1043,8 +1067,8 @@ html, body, #root {
   border-radius: 0 !important;
   border: none !important;
 }
-.graph-wrap:fullscreen .graph-svg,
-.graph-wrap-fs .graph-svg { height: 100vh; }
+.graph-wrap:fullscreen .graph-canvas,
+.graph-wrap-fs .graph-canvas { height: 100vh; }
 
 .btn-sm { padding: 5px 12px; font-size: 13px; }
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo, useDeferredValue } from 'react'
 import { entryType, entryDisplayName } from '../utils.js'
 import GraphView from './GraphView.jsx'
 
@@ -7,10 +7,10 @@ function TypeBadge({ type }) {
   return <span className={`type-badge type-badge-${type}`}>{labels[type]}</span>
 }
 
-function EntryCard({ entry, entries, onEdit, onDelete, onToggleMastered }) {
+const EntryCard = memo(function EntryCard({ entry, entryMap, onEdit, onDelete, onToggleMastered }) {
   const type = entryType(entry)
   const components = entry.componentIds
-    .map(id => entries.find(e => e.id === id))
+    .map(id => entryMap.get(id))
     .filter(Boolean)
 
   function confirmDelete() {
@@ -80,9 +80,9 @@ function EntryCard({ entry, entries, onEdit, onDelete, onToggleMastered }) {
       </div>
     </div>
   )
-}
+})
 
-export default function LibraryView({ entries, onEdit, onDelete, onToggleMastered, onNew, onReview }) {
+export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDelete, onToggleMastered, onNew, onReview }) {
   const [viewMode, setViewMode] = useState('list') // 'list' | 'graph'
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('all') // 'all'|'primitive'|'character'|'dual'
@@ -121,14 +121,19 @@ export default function LibraryView({ entries, onEdit, onDelete, onToggleMastere
     })
   }, [entries, search, filterType, filterBook, filterLesson, filterMastered])
 
-  const counts = useMemo(() => ({
-    primitive: entries.filter(e => entryType(e) === 'primitive').length,
-    character: entries.filter(e => entryType(e) === 'character').length,
-    dual: entries.filter(e => entryType(e) === 'dual').length,
-    mastered: entries.filter(e => e.isMastered).length,
-  }), [entries])
+  const counts = useMemo(() => {
+    const c = { primitive: 0, character: 0, dual: 0, mastered: 0 }
+    for (const e of entries) {
+      c[entryType(e)]++
+      if (e.isMastered) c.mastered++
+    }
+    return c
+  }, [entries])
 
   const reviewable = entries.filter(e => e.keyword?.trim())
+
+  // Defer list rendering so search input stays responsive
+  const deferredFiltered = useDeferredValue(filtered)
 
   return (
     <div className="library">
@@ -166,7 +171,7 @@ export default function LibraryView({ entries, onEdit, onDelete, onToggleMastere
 
       {/* Graph view */}
       {viewMode === 'graph' && (
-        <GraphView entries={entries} onEdit={onEdit} />
+        <GraphView entries={entries} entryMap={entryMap} usedByMap={usedByMap} onEdit={onEdit} />
       )}
 
       {/* List view */}
@@ -219,7 +224,7 @@ export default function LibraryView({ entries, onEdit, onDelete, onToggleMastere
             </select>
           </div>
 
-          {filtered.length === 0 ? (
+          {deferredFiltered.length === 0 ? (
             <div className="empty-state">
               {entries.length === 0
                 ? 'Your library is empty. Click "+ Add Entry" to begin.'
@@ -227,11 +232,11 @@ export default function LibraryView({ entries, onEdit, onDelete, onToggleMastere
             </div>
           ) : (
             <div className="item-list">
-              {filtered.map(entry => (
+              {deferredFiltered.map(entry => (
                 <EntryCard
                   key={entry.id}
                   entry={entry}
-                  entries={entries}
+                  entryMap={entryMap}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onToggleMastered={onToggleMastered}
