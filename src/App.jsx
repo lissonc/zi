@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Header from './components/Header.jsx'
 import WelcomeView from './components/WelcomeView.jsx'
 import LibraryView from './components/LibraryView.jsx'
@@ -23,6 +23,24 @@ export default function App() {
   const [entries, setEntries] = useState([])
   // editing: the entry object being edited, or null for new
   const [editingItem, setEditingItem] = useState(null)
+
+  // Derived lookup structures — O(1) id→entry and id→usedBy lookups
+  const entryMap = useMemo(() => {
+    const m = new Map()
+    for (const e of entries) m.set(e.id, e)
+    return m
+  }, [entries])
+
+  const usedByMap = useMemo(() => {
+    const m = new Map()
+    for (const e of entries) {
+      for (const cid of e.componentIds) {
+        if (!m.has(cid)) m.set(cid, [])
+        m.get(cid).push(e.id)
+      }
+    }
+    return m
+  }, [entries])
 
   useEffect(() => {
     const saved = loadFromStorage()
@@ -87,14 +105,17 @@ export default function App() {
   }, [])
 
   const deleteEntry = useCallback((id) => {
-    const usedBy = entries.filter(e => e.componentIds.includes(id))
-    if (usedBy.length > 0) {
-      const names = usedBy.map(e => e.keyword || e.primitiveKeywords?.[0] || e.character).join(', ')
+    const usedByIds = usedByMap.get(id)
+    if (usedByIds?.length > 0) {
+      const names = usedByIds.map(uid => {
+        const e = entryMap.get(uid)
+        return e ? (e.keyword || e.primitiveKeywords?.[0] || e.character) : uid
+      }).join(', ')
       alert(`Cannot delete: used as a component in — ${names}`)
       return
     }
     setEntries(prev => prev.filter(e => e.id !== id))
-  }, [entries])
+  }, [entryMap, usedByMap])
 
   const toggleMastered = useCallback((id) => {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, isMastered: !e.isMastered } : e))
@@ -134,6 +155,8 @@ export default function App() {
         {currentView === 'library' && (
           <LibraryView
             entries={entries}
+            entryMap={entryMap}
+            usedByMap={usedByMap}
             onEdit={goToEditor}
             onDelete={deleteEntry}
             onToggleMastered={toggleMastered}
@@ -145,6 +168,7 @@ export default function App() {
           <EditorView
             item={editingItem}
             entries={entries}
+            entryMap={entryMap}
             onSave={saveEntry}
             onCancel={cancelEdit}
           />
@@ -152,6 +176,7 @@ export default function App() {
         {currentView === 'review' && (
           <ReviewView
             entries={entries}
+            entryMap={entryMap}
             onToggleMastered={toggleMastered}
             onExit={() => setCurrentView('library')}
           />

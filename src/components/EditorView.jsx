@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { entryDisplayName, entryType } from '../utils.js'
 
-export default function EditorView({ item, entries, onSave, onCancel }) {
+export default function EditorView({ item, entries, entryMap, onSave, onCancel }) {
   const isEditing = Boolean(item?.id)
 
   const [character, setCharacter] = useState(item?.character || '')
@@ -34,10 +34,11 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
           e.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q))
         )
       : candidates
-    // Selected entries float to the top
+    // Selected entries float to the top — use Set for O(1) lookup in comparator
+    const selectedSet = new Set(componentIds)
     return [...matches].sort((a, b) => {
-      const aOn = componentIds.includes(a.id)
-      const bOn = componentIds.includes(b.id)
+      const aOn = selectedSet.has(a.id)
+      const bOn = selectedSet.has(b.id)
       if (aOn && !bOn) return -1
       if (!aOn && bOn) return 1
       return 0
@@ -70,7 +71,7 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
     })
   }
 
-  const typeLabel = { primitive: 'Primitive', character: 'Character', dual: 'Dual' }[derivedType]
+  const typeLabel = { primitive: '💠 Primitive', character: 'Character', dual: '💠 Dual' }[derivedType]
   const typeClass = { primitive: 'type-pill-primitive', character: 'type-pill-character', dual: 'type-pill-dual' }[derivedType]
 
   return (
@@ -111,7 +112,7 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
 
         {/* Primitive keywords */}
         <div className="form-group">
-          <label className="form-label">Primitive Keywords</label>
+          <label className="form-label">💠 Primitive Keywords</label>
           <input
             className="form-input"
             value={primKwInput}
@@ -119,7 +120,7 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
             placeholder="e.g. person, human, walking legs  (comma-separated)"
           />
           <p className="form-hint">
-            The name(s) used when this entry appears as a building block in stories.
+            The 💠 name(s) used when this entry appears as a building block in stories.
             Leave blank if this character is never used as a component.
           </p>
         </div>
@@ -197,7 +198,7 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
                       title={e.primitiveKeywords?.join(', ') || e.keyword}
                     >
                       {e.character && <span className="comp-chip-glyph">{e.character}</span>}
-                      <span>{entryDisplayName(e)}</span>
+                      <span>{e.primitiveKeywords?.length > 0 ? <>💠 {e.primitiveKeywords[0]}</> : entryDisplayName(e)}</span>
                     </button>
                   )
                 })}
@@ -211,9 +212,9 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
             <p className="form-hint">
               Selected:{' '}
               {componentIds
-                .map(id => entries.find(e => e.id === id))
+                .map(id => entryMap.get(id))
                 .filter(Boolean)
-                .map(entryDisplayName)
+                .map(e => e.primitiveKeywords?.length > 0 ? `💠 ${e.primitiveKeywords[0]}` : entryDisplayName(e))
                 .join(', ')}
             </p>
           )}

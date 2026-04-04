@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { entryType, entryDisplayName } from '../utils.js'
 
 // ── Physics constants ─────────────────────────────────────────────────────────
@@ -7,7 +7,8 @@ const W = 900
 const H = 620
 
 const REPULSION        = 1600
-const REPULSION_CUT_SQ = 240 * 240
+const REPULSION_CUT    = 80          // px — reduced from 240; cutoff radius
+const REPULSION_CUT_SQ = REPULSION_CUT * REPULSION_CUT
 const SPRING_K         = 0.06
 const SPRING_LEN       = 80
 const CENTER_K         = 0.016
@@ -17,8 +18,11 @@ const ALPHA_INIT       = 1.0
 const ALPHA_DECAY      = 0.0228
 const ALPHA_MIN        = 0.001
 
+const GRAPH_NODE_LIMIT = 500
+
 const TYPE_FILL   = { primitive: '#4c1d95', dual: '#134e4a', character: '#1e3a8a' }
 const TYPE_STROKE = { primitive: '#a78bfa', dual: '#2dd4bf', character: '#60a5fa' }
+const TYPE_STROKE_RGB = { primitive: '167,139,250', dual: '45,212,191', character: '96,165,250' }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,6 +40,21 @@ function fibonacciPos(i, N, cx, cy) {
   }
 }
 
+// ── Spatial grid for O(1) neighbour lookup ────────────────────────────────────
+
+function buildGrid(nodes) {
+  const cellSize = REPULSION_CUT
+  const cols = Math.ceil(W / cellSize) + 1
+  const rows = Math.ceil(H / cellSize) + 1
+  const cells = new Array(cols * rows).fill(null).map(() => [])
+  for (const n of nodes) {
+    const ci = Math.max(0, Math.min(cols - 1, Math.floor(n.x / cellSize)))
+    const ri = Math.max(0, Math.min(rows - 1, Math.floor(n.y / cellSize)))
+    cells[ri * cols + ci].push(n)
+  }
+  return { cells, cols, rows, cellSize }
+}
+
 // ── Physics tick ──────────────────────────────────────────────────────────────
 
 function tick(sim) {
@@ -44,17 +63,48 @@ function tick(sim) {
   const map = {}
   for (const n of nodes) map[n.id] = n
 
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      const a = nodes[i], b = nodes[j]
-      const dx = b.x - a.x, dy = b.y - a.y
-      const dSq = dx * dx + dy * dy
-      if (dSq > REPULSION_CUT_SQ) continue
-      const dist = Math.sqrt(dSq) || 0.5
-      const f  = (REPULSION / (dist * dist)) * alpha
-      const fx = (dx / dist) * f, fy = (dy / dist) * f
-      a.vx -= fx; a.vy -= fy
-      b.vx += fx; b.vy += fy
+  // Repulsion via spatial grid — only check nodes in adjacent cells
+  const grid = buildGrid(nodes)
+  const { cells, cols, rows, cellSize } = grid
+
+  for (let ri = 0; ri < rows; ri++) {
+    for (let ci = 0; ci < cols; ci++) {
+      const cell = cells[ri * cols + ci]
+      if (!cell.length) continue
+      // Gather candidate cells: self + 8 neighbours (avoid double-counting)
+      for (let dri = 0; dri <= 1; dri++) {
+        for (let dci = (dri === 0 ? 1 : -1); dci <= 1; dci++) {
+          const nri = ri + dri, nci = ci + dci
+          if (nri < 0 || nri >= rows || nci < 0 || nci >= cols) continue
+          const other = cells[nri * cols + nci]
+          for (const a of cell) {
+            for (const b of other) {
+              const dx = b.x - a.x, dy = b.y - a.y
+              const dSq = dx * dx + dy * dy
+              if (dSq > REPULSION_CUT_SQ) continue
+              const dist = Math.sqrt(dSq) || 0.5
+              const f  = (REPULSION / (dist * dist)) * alpha
+              const fx = (dx / dist) * f, fy = (dy / dist) * f
+              a.vx -= fx; a.vy -= fy
+              b.vx += fx; b.vy += fy
+            }
+          }
+        }
+      }
+      // Same cell: check all pairs within it
+      for (let i = 0; i < cell.length; i++) {
+        for (let j = i + 1; j < cell.length; j++) {
+          const a = cell[i], b = cell[j]
+          const dx = b.x - a.x, dy = b.y - a.y
+          const dSq = dx * dx + dy * dy
+          if (dSq > REPULSION_CUT_SQ) continue
+          const dist = Math.sqrt(dSq) || 0.5
+          const f  = (REPULSION / (dist * dist)) * alpha
+          const fx = (dx / dist) * f, fy = (dy / dist) * f
+          a.vx -= fx; a.vy -= fy
+          b.vx += fx; b.vy += fy
+        }
+      }
     }
   }
 
@@ -89,15 +139,142 @@ function tick(sim) {
   return sim.alpha
 }
 
+// ── Canvas draw ───────────────────────────────────────────────────────────────
+
+function drawFrame(canvas, phys, pan, zoom, radiusMap, selectedId, hoverId, connectedIds, showCircles, entryLookup) {
+  const ctx = canvas.getContext('2d')
+  const dpr = window.devicePixelRatio || 1
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.save()
+  ctx.scale(dpr, dpr)
+  ctx.translate(pan.x, pan.y)
+  ctx.scale(zoom, zoom)
+
+  const { nodes, edges } = phys
+  const nodeMap = {}
+  for (const n of nodes) nodeMap[n.id] = n
+
+  // Draw edges
+  for (const { source, target } of edges) {
+    const s = nodeMap[source], t = nodeMap[target]
+    if (!s || !t) continue
+    const active = connectedIds ? (connectedIds.has(source) && connectedIds.has(target)) : false
+    ctx.beginPath()
+    ctx.moveTo(s.x, s.y)
+    const tr = (radiusMap[target] ?? 12) + 2
+    const dx = t.x - s.x, dy = t.y - s.y
+    const len = Math.sqrt(dx * dx + dy * dy) || 1
+    ctx.lineTo(t.x - (dx / len) * tr, t.y - (dy / len) * tr)
+    ctx.strokeStyle = active ? 'rgba(148,163,184,0.9)' : 'rgba(71,85,105,0.45)'
+    ctx.lineWidth = active ? 1.5 : 1
+    ctx.stroke()
+
+    // Arrowhead
+    if (len > tr + 4) {
+      const ex = t.x - (dx / len) * tr
+      const ey = t.y - (dy / len) * tr
+      const angle = Math.atan2(dy, dx)
+      ctx.beginPath()
+      ctx.moveTo(ex, ey)
+      ctx.lineTo(ex - 7 * Math.cos(angle - 0.4), ey - 7 * Math.sin(angle - 0.4))
+      ctx.lineTo(ex - 7 * Math.cos(angle + 0.4), ey - 7 * Math.sin(angle + 0.4))
+      ctx.closePath()
+      ctx.fillStyle = active ? 'rgba(148,163,184,0.9)' : 'rgba(71,85,105,0.45)'
+      ctx.fill()
+    }
+  }
+
+  // Draw nodes
+  for (const n of nodes) {
+    const entry = entryLookup[n.id]
+    if (!entry) continue
+    const type   = entryType(entry)
+    const r      = radiusMap[n.id] ?? 10
+    const isSelected = selectedId === n.id
+    const isHovered  = hoverId === n.id
+    const dim    = connectedIds ? !connectedIds.has(n.id) : false
+    const alpha  = dim ? 0.18 : 1
+
+    ctx.globalAlpha = alpha
+
+    if (showCircles) {
+      // Selection ring
+      if (isSelected) {
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, r + 6, 0, Math.PI * 2)
+        ctx.strokeStyle = `rgba(${TYPE_STROKE_RGB[type]},0.5)`
+        ctx.lineWidth = 2
+        ctx.stroke()
+      }
+      // Main circle
+      ctx.beginPath()
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = TYPE_FILL[type]
+      ctx.fill()
+      ctx.strokeStyle = TYPE_STROKE[type]
+      ctx.lineWidth = isSelected ? 2.5 : 1.5
+      ctx.stroke()
+
+      // Glyph or abbreviation
+      ctx.fillStyle = '#f1f5f9'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      if (entry.character) {
+        ctx.font = `${r * 1.05}px serif`
+        ctx.fillText(entry.character, n.x, n.y + 0.5)
+      } else {
+        ctx.font = `bold ${r * 0.75}px sans-serif`
+        ctx.fillText(entryDisplayName(entry).slice(0, 2), n.x, n.y)
+      }
+    } else {
+      // Character-only mode
+      if (isSelected) {
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, r * 0.72, 0, Math.PI * 2)
+        ctx.strokeStyle = `rgba(${TYPE_STROKE_RGB[type]},0.7)`
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+      }
+      ctx.fillStyle = isSelected ? '#fff' : isHovered ? '#e2e8f0' : TYPE_STROKE[type]
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      if (entry.character) {
+        ctx.font = `${r * 1.6}px serif`
+        ctx.fillText(entry.character, n.x, n.y + 0.5)
+      } else {
+        ctx.font = `bold ${r * 0.85}px sans-serif`
+        ctx.fillText(entryDisplayName(entry).slice(0, 2), n.x, n.y)
+      }
+    }
+
+    // Hover/select label
+    if (isHovered || isSelected) {
+      ctx.globalAlpha = 1
+      const label = entryDisplayName(entry)
+      ctx.font = `11px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      const tw = ctx.measureText(label).width
+      ctx.fillStyle = 'rgba(15,23,42,0.85)'
+      ctx.fillRect(n.x - tw / 2 - 3, n.y + r + 5, tw + 6, 16)
+      ctx.fillStyle = '#e2e8f0'
+      ctx.fillText(label, n.x, n.y + r + 7)
+    }
+  }
+
+  ctx.globalAlpha = 1
+  ctx.restore()
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function GraphView({ entries, onEdit }) {
+export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   const physRef  = useRef({ nodes: [], edges: [], alpha: ALPHA_INIT })
   const frameRef = useRef(null)
-  const ticksRef = useRef(0)
+  const canvasRef = useRef(null)
+  const nodeMapRef = useRef({})  // id → phys node, O(1) lookup in drag handlers
   const wrapRef  = useRef(null)
 
-  const [nodePos, setNodePos]       = useState({})
   const [selectedId, setSelectedId] = useState(null)
   const [hoverId, setHoverId]       = useState(null)
 
@@ -105,172 +282,189 @@ export default function GraphView({ entries, onEdit }) {
   const [showCircles, setShowCircles] = useState(true)
   const [nodeScale,   setNodeScale]   = useState(1.0)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showAll, setShowAll] = useState(false)
 
   // Pan / zoom
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
-  const panRef       = useRef({ x: 0, y: 0 })
-  const zoomRef      = useRef(1)
-  const zoomTargetRef = useRef(1)   // desired zoom; lerp animates toward it
+  const panRef        = useRef({ x: 0, y: 0 })
+  const zoomRef       = useRef(1)
+  const zoomTargetRef = useRef(1)
   const zoomRafRef    = useRef(null)
   useEffect(() => { panRef.current = pan }, [pan])
 
-  const svgRef    = useRef(null)
-  const dragRef   = useRef(null)
-  const bgDragRef = useRef(null)
+  const canvasDragRef = useRef(null)   // background pan drag
+  const nodeDragRef   = useRef(null)   // node drag
 
-  // Track fullscreen state
+  // Track fullscreen
   useEffect(() => {
     function onChange() { setIsFullscreen(Boolean(document.fullscreenElement)) }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
 
+  // ── Visible entries (node limit) ─────────────────────────────────────────────
+
+  const visibleEntries = useMemo(() => {
+    if (showAll || entries.length <= GRAPH_NODE_LIMIT) return entries
+    // Show most-linked nodes first for the most informative subgraph
+    return [...entries]
+      .sort((a, b) => {
+        const aCount = usedByMap.get(a.id)?.length ?? 0
+        const bCount = usedByMap.get(b.id)?.length ?? 0
+        return bCount - aCount
+      })
+      .slice(0, GRAPH_NODE_LIMIT)
+  }, [entries, usedByMap, showAll])
+
+  // ── Derived maps ─────────────────────────────────────────────────────────────
+
+  const radiusMap = useMemo(() => {
+    const m = {}
+    for (const e of visibleEntries) {
+      const usedByCount = usedByMap.get(e.id)?.length ?? 0
+      m[e.id] = baseRadius(usedByCount) * nodeScale
+    }
+    return m
+  }, [visibleEntries, usedByMap, nodeScale])
+
+  // Flat lookup object for drawFrame (avoids Map.get overhead in hot loop)
+  const entryLookup = useMemo(() => {
+    const o = {}
+    for (const e of visibleEntries) o[e.id] = e
+    return o
+  }, [visibleEntries])
+
   // ── Simulation ───────────────────────────────────────────────────────────────
+
+  // Refs that drawFrame needs, updated each render
+  const panZoomRef = useRef({ pan, zoom })
+  const showCirclesRef = useRef(showCircles)
+  const radiusMapRef = useRef(radiusMap)
+  const entryLookupRef = useRef(entryLookup)
+  const selectedIdRef = useRef(selectedId)
+  const hoverIdRef = useRef(hoverId)
+  const connectedIdsRef = useRef(null)
+
+  useEffect(() => { panZoomRef.current = { pan, zoom } }, [pan, zoom])
+  useEffect(() => { showCirclesRef.current = showCircles }, [showCircles])
+  useEffect(() => { radiusMapRef.current = radiusMap }, [radiusMap])
+  useEffect(() => { entryLookupRef.current = entryLookup }, [entryLookup])
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+  useEffect(() => { hoverIdRef.current = hoverId }, [hoverId])
+
+  // connectedIds for highlight — memoized
+  const activeId = selectedId || hoverId
+  const connectedIds = useMemo(() => {
+    if (!activeId) return null
+    const entry = entryMap.get(activeId)
+    const ids = new Set([activeId, ...(entry?.componentIds ?? [])])
+    for (const id of (usedByMap.get(activeId) ?? [])) ids.add(id)
+    return ids
+  }, [activeId, entryMap, usedByMap])
+
+  useEffect(() => { connectedIdsRef.current = connectedIds }, [connectedIds])
+
+  function redraw() {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const { pan: p, zoom: z } = panZoomRef.current
+    drawFrame(canvas, physRef.current, p, z, radiusMapRef.current,
+      selectedIdRef.current, hoverIdRef.current, connectedIdsRef.current,
+      showCirclesRef.current, entryLookupRef.current)
+  }
 
   const startSim = useCallback((resetAlpha = true) => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
     if (!physRef.current.nodes.length) return
     if (resetAlpha) physRef.current.alpha = ALPHA_INIT
-    ticksRef.current = 0
 
     function animate() {
       const alpha = tick(physRef.current)
-      ticksRef.current++
-      if (ticksRef.current % 3 === 0) {
-        const snap = {}
-        for (const n of physRef.current.nodes) snap[n.id] = { x: n.x, y: n.y }
-        setNodePos(snap)
-      }
+      redraw()
       if (alpha > ALPHA_MIN) {
         frameRef.current = requestAnimationFrame(animate)
       } else {
         frameRef.current = null
-        const snap = {}
-        for (const n of physRef.current.nodes) snap[n.id] = { x: n.x, y: n.y }
-        setNodePos(snap)
+        redraw()
       }
     }
-
     frameRef.current = requestAnimationFrame(animate)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const oldPos = {}
     for (const n of physRef.current.nodes) oldPos[n.id] = { x: n.x, y: n.y }
 
     const cx = W / 2, cy = H / 2
-    const N  = entries.length
+    const N  = visibleEntries.length
 
-    const nodes = entries.map((e, i) => {
+    const nodes = visibleEntries.map((e, i) => {
       const prev = oldPos[e.id]
       if (prev) return { id: e.id, x: prev.x, y: prev.y, vx: 0, vy: 0, pinned: false }
       const pos = fibonacciPos(i, N, cx, cy)
       return { id: e.id, ...pos, vx: 0, vy: 0, pinned: false }
     })
 
-    const ids   = new Set(entries.map(e => e.id))
-    const edges = entries.flatMap(e =>
+    // Build nodeMapRef for O(1) drag lookup
+    const nmap = {}
+    for (const n of nodes) nmap[n.id] = n
+    nodeMapRef.current = nmap
+
+    const ids   = new Set(visibleEntries.map(e => e.id))
+    const edges = visibleEntries.flatMap(e =>
       e.componentIds.filter(cid => ids.has(cid)).map(cid => ({ source: e.id, target: cid }))
     )
 
     physRef.current = { nodes, edges, alpha: ALPHA_INIT }
     startSim(false)
     return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }
-  }, [entries, startSim])
+  }, [visibleEntries, startSim])
 
-  // Precompute radii (avoids per-render O(n) scan)
-  const radiusMap = {}
-  for (const e of entries) {
-    const usedBy = entries.filter(x => x.componentIds.includes(e.id)).length
-    radiusMap[e.id] = baseRadius(usedBy) * nodeScale
-  }
+  // Redraw whenever visual state changes (no physics tick needed)
+  useEffect(() => { redraw() }, [pan, zoom, showCircles, nodeScale, selectedId, hoverId, connectedIds, radiusMap]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Canvas DPR sizing — use ResizeObserver so fullscreen / window resize work
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const wrap   = wrapRef.current
+    if (!canvas || !wrap) return
+
+    function syncSize() {
+      const dpr  = window.devicePixelRatio || 1
+      const rect = canvas.getBoundingClientRect()
+      const cssW = rect.width  || W
+      const cssH = rect.height || H
+      if (canvas.width  !== Math.round(cssW * dpr) ||
+          canvas.height !== Math.round(cssH * dpr)) {
+        canvas.width  = Math.round(cssW * dpr)
+        canvas.height = Math.round(cssH * dpr)
+      }
+      redraw()
+    }
+
+    syncSize()
+    const ro = new ResizeObserver(syncSize)
+    ro.observe(wrap)
+    return () => ro.disconnect()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Info panel derived data ──────────────────────────────────────────────────
+
+  const selectedEntry = useMemo(() =>
+    selectedId ? entryMap.get(selectedId) ?? null : null,
+    [selectedId, entryMap]
+  )
+  const selComponents = useMemo(() =>
+    selectedEntry ? selectedEntry.componentIds.map(id => entryMap.get(id)).filter(Boolean) : [],
+    [selectedEntry, entryMap]
+  )
+  const selUsedBy = useMemo(() =>
+    selectedId ? (usedByMap.get(selectedId) ?? []).map(id => entryMap.get(id)).filter(Boolean) : [],
+    [selectedId, entryMap, usedByMap]
+  )
 
   // ── View controls ────────────────────────────────────────────────────────────
-
-  function fitView() {
-    const nodes = physRef.current.nodes
-    if (!nodes.length) return
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const n of nodes) {
-      const r = radiusMap[n.id] ?? 10
-      minX = Math.min(minX, n.x - r); minY = Math.min(minY, n.y - r)
-      maxX = Math.max(maxX, n.x + r); maxY = Math.max(maxY, n.y + r)
-    }
-    const pad = 48
-    const newZoom = Math.min(W / (maxX - minX + pad * 2), H / (maxY - minY + pad * 2), 4)
-    setPan({
-      x: W / 2 - ((minX + maxX) / 2) * newZoom,
-      y: H / 2 - ((minY + maxY) / 2) * newZoom,
-    })
-    zoomTargetRef.current = newZoom
-    setZoom(newZoom)
-    zoomRef.current = newZoom
-  }
-
-  function resetView() {
-    setPan({ x: 0, y: 0 })
-    zoomTargetRef.current = 1
-    setZoom(1)
-    zoomRef.current = 1
-  }
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      wrapRef.current?.requestFullscreen()
-    } else {
-      document.exitFullscreen()
-    }
-  }
-
-  // ── Mouse handlers ───────────────────────────────────────────────────────────
-
-  function onNodeDown(e, id) {
-    e.stopPropagation()
-    const phys = physRef.current.nodes.find(n => n.id === id)
-    if (phys) phys.pinned = true
-    dragRef.current = { nodeId: id, prevCX: e.clientX, prevCY: e.clientY }
-    setSelectedId(id)
-  }
-
-  function onBgDown(e) {
-    if (e.target !== svgRef.current && !e.target.classList.contains('graph-bg')) return
-    bgDragRef.current = { startCX: e.clientX, startCY: e.clientY, startPan: { ...panRef.current } }
-    setSelectedId(null)
-  }
-
-  function onMouseMove(e) {
-    if (dragRef.current) {
-      const rect   = svgRef.current.getBoundingClientRect()
-      const scaleX = W / rect.width, scaleY = H / rect.height
-      const dx = (e.clientX - dragRef.current.prevCX) * scaleX / zoomRef.current
-      const dy = (e.clientY - dragRef.current.prevCY) * scaleY / zoomRef.current
-      const phys = physRef.current.nodes.find(n => n.id === dragRef.current.nodeId)
-      if (phys) { phys.x += dx; phys.y += dy; phys.vx = 0; phys.vy = 0 }
-      dragRef.current.prevCX = e.clientX
-      dragRef.current.prevCY = e.clientY
-      const snap = {}
-      for (const n of physRef.current.nodes) snap[n.id] = { x: n.x, y: n.y }
-      setNodePos(snap)
-      return
-    }
-    if (bgDragRef.current) {
-      const { startCX, startCY, startPan } = bgDragRef.current
-      const rect   = svgRef.current.getBoundingClientRect()
-      const scaleX = W / rect.width, scaleY = H / rect.height
-      setPan({ x: startPan.x + (e.clientX - startCX) * scaleX, y: startPan.y + (e.clientY - startCY) * scaleY })
-    }
-  }
-
-  function onMouseUp() {
-    if (dragRef.current) {
-      const phys = physRef.current.nodes.find(n => n.id === dragRef.current.nodeId)
-      if (phys) phys.pinned = false
-      dragRef.current = null
-      startSim()
-    }
-    bgDragRef.current = null
-  }
 
   function animateZoom() {
     setZoom(current => {
@@ -288,16 +482,136 @@ export default function GraphView({ entries, onEdit }) {
     })
   }
 
+  function fitView() {
+    const nodes = physRef.current.nodes
+    if (!nodes.length) return
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const n of nodes) {
+      const r = radiusMapRef.current[n.id] ?? 10
+      minX = Math.min(minX, n.x - r); minY = Math.min(minY, n.y - r)
+      maxX = Math.max(maxX, n.x + r); maxY = Math.max(maxY, n.y + r)
+    }
+    const pad = 48
+    const newZoom = Math.min(W / (maxX - minX + pad * 2), H / (maxY - minY + pad * 2), 4)
+    const newPan = {
+      x: W / 2 - ((minX + maxX) / 2) * newZoom,
+      y: H / 2 - ((minY + maxY) / 2) * newZoom,
+    }
+    setPan(newPan)
+    zoomTargetRef.current = newZoom
+    setZoom(newZoom)
+    zoomRef.current = newZoom
+  }
+
+  function resetView() {
+    setPan({ x: 0, y: 0 })
+    zoomTargetRef.current = 1
+    setZoom(1)
+    zoomRef.current = 1
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) wrapRef.current?.requestFullscreen()
+    else document.exitFullscreen()
+  }
+
+  // ── Canvas mouse handlers ────────────────────────────────────────────────────
+
+  function getCanvasXY(e) {
+    const rect = canvasRef.current.getBoundingClientRect()
+    const scaleX = W / rect.width, scaleY = H / rect.height
+    return [
+      (e.clientX - rect.left) * scaleX,
+      (e.clientY - rect.top)  * scaleY,
+    ]
+  }
+
+  function worldXY(cx, cy) {
+    const { pan: p, zoom: z } = panZoomRef.current
+    return [(cx - p.x) / z, (cy - p.y) / z]
+  }
+
+  function hitTest(wx, wy) {
+    let best = null, bestDSq = Infinity
+    for (const n of physRef.current.nodes) {
+      const r = radiusMapRef.current[n.id] ?? 10
+      const dx = wx - n.x, dy = wy - n.y
+      const dSq = dx * dx + dy * dy
+      if (dSq <= r * r * 2.5 && dSq < bestDSq) { best = n.id; bestDSq = dSq }
+    }
+    return best
+  }
+
+  function onMouseDown(e) {
+    const [cx, cy] = getCanvasXY(e)
+    const [wx, wy] = worldXY(cx, cy)
+    const hit = hitTest(wx, wy)
+    if (hit) {
+      const phys = nodeMapRef.current[hit]
+      if (phys) phys.pinned = true
+      nodeDragRef.current = { nodeId: hit, prevCX: e.clientX, prevCY: e.clientY }
+      setSelectedId(hit)
+    } else {
+      canvasDragRef.current = { startCX: e.clientX, startCY: e.clientY, startPan: { ...panRef.current } }
+      setSelectedId(null)
+    }
+  }
+
+  function onMouseMove(e) {
+    if (nodeDragRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect()
+      const scaleX = W / rect.width, scaleY = H / rect.height
+      const dx = (e.clientX - nodeDragRef.current.prevCX) * scaleX / zoomRef.current
+      const dy = (e.clientY - nodeDragRef.current.prevCY) * scaleY / zoomRef.current
+      const phys = nodeMapRef.current[nodeDragRef.current.nodeId]
+      if (phys) { phys.x += dx; phys.y += dy; phys.vx = 0; phys.vy = 0 }
+      nodeDragRef.current.prevCX = e.clientX
+      nodeDragRef.current.prevCY = e.clientY
+      redraw()
+      return
+    }
+    if (canvasDragRef.current) {
+      const { startCX, startCY, startPan } = canvasDragRef.current
+      const rect = canvasRef.current.getBoundingClientRect()
+      const scaleX = W / rect.width, scaleY = H / rect.height
+      const newPan = {
+        x: startPan.x + (e.clientX - startCX) * scaleX,
+        y: startPan.y + (e.clientY - startCY) * scaleY,
+      }
+      panRef.current = newPan
+      panZoomRef.current = { ...panZoomRef.current, pan: newPan }
+      setPan(newPan)
+      return
+    }
+    // Hover hit test
+    const [cx, cy] = getCanvasXY(e)
+    const [wx, wy] = worldXY(cx, cy)
+    const hit = hitTest(wx, wy)
+    if (hit !== hoverId) setHoverId(hit)
+  }
+
+  function onMouseUp() {
+    if (nodeDragRef.current) {
+      const phys = nodeMapRef.current[nodeDragRef.current.nodeId]
+      if (phys) phys.pinned = false
+      nodeDragRef.current = null
+      startSim()
+    }
+    canvasDragRef.current = null
+  }
+
+  function onMouseLeave() {
+    onMouseUp()
+    setHoverId(null)
+  }
+
   function onWheel(e) {
     e.preventDefault()
     let delta = e.deltaY
-    // Normalise deltaMode (0=pixels, 1=lines, 2=pages)
     if (e.deltaMode === 1) delta *= 20
     else if (e.deltaMode === 2) delta *= 300
-    // Cap to prevent runaway trackpad momentum bursts
     const cap = e.ctrlKey ? 15 : 120
     delta = Math.sign(delta) * Math.min(Math.abs(delta), cap)
-    // Exponential: ctrlKey = macOS pinch-to-zoom (high precision)
     const sensitivity = e.ctrlKey ? 0.015 : 0.001
     const factor = Math.exp(-delta * sensitivity)
     zoomTargetRef.current = Math.max(0.15, Math.min(6, zoomTargetRef.current * factor))
@@ -306,144 +620,30 @@ export default function GraphView({ entries, onEdit }) {
     }
   }
 
-  // ── Derived render values ────────────────────────────────────────────────────
-
-  const activeId = selectedId || hoverId
-  const connectedIds = activeId ? new Set([
-    activeId,
-    ...(entries.find(e => e.id === activeId)?.componentIds ?? []),
-    ...entries.filter(e => e.componentIds.includes(activeId)).map(e => e.id),
-  ]) : null
-
-  const selectedEntry = selectedId ? entries.find(e => e.id === selectedId) : null
-  const selComponents = selectedEntry
-    ? selectedEntry.componentIds.map(id => entries.find(e => e.id === id)).filter(Boolean)
-    : []
-  const selUsedBy = selectedId ? entries.filter(e => e.componentIds.includes(selectedId)) : []
-
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  const isCapped = !showAll && entries.length > GRAPH_NODE_LIMIT
 
   return (
     <div ref={wrapRef} className={`graph-wrap ${isFullscreen ? 'graph-wrap-fs' : ''}`}>
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        className="graph-svg"
+      {isCapped && (
+        <div className="graph-cap-banner">
+          Showing {GRAPH_NODE_LIMIT} of {entries.length} entries (most-linked first).{' '}
+          <button className="graph-cap-btn" onClick={() => setShowAll(true)}>
+            Show all {entries.length}
+          </button>
+        </div>
+      )}
+
+      <canvas
+        ref={canvasRef}
+        className="graph-canvas"
+        onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-        onMouseDown={onBgDown}
+        onMouseLeave={onMouseLeave}
         onWheel={onWheel}
-      >
-        <defs>
-          <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" className="graph-arrow" />
-          </marker>
-        </defs>
-
-        <rect className="graph-bg" x="0" y="0" width={W} height={H} fill="transparent" />
-
-        <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
-          {/* Edges */}
-          {physRef.current.edges.map(({ source, target }) => {
-            const s = nodePos[source], t = nodePos[target]
-            if (!s || !t) return null
-            const active = connectedIds ? (connectedIds.has(source) && connectedIds.has(target)) : false
-            const tr  = showCircles ? (radiusMap[target] ?? 12) + 2 : 8
-            const dx  = t.x - s.x, dy = t.y - s.y
-            const len = Math.sqrt(dx * dx + dy * dy) || 1
-            return (
-              <line
-                key={`${source}-${target}`}
-                x1={s.x} y1={s.y}
-                x2={t.x - (dx / len) * tr}
-                y2={t.y - (dy / len) * tr}
-                className={`graph-edge ${active ? 'graph-edge-active' : ''}`}
-                markerEnd="url(#arrow)"
-              />
-            )
-          })}
-
-          {/* Nodes */}
-          {entries.map(entry => {
-            const pos = nodePos[entry.id]
-            if (!pos) return null
-            const type       = entryType(entry)
-            const r          = radiusMap[entry.id] ?? 10
-            const isSelected = selectedId === entry.id
-            const isHovered  = hoverId === entry.id
-            const dim        = connectedIds ? !connectedIds.has(entry.id) : false
-            const name       = entryDisplayName(entry)
-            const showLabel  = isHovered || isSelected
-
-            return (
-              <g
-                key={entry.id}
-                transform={`translate(${pos.x} ${pos.y})`}
-                className="graph-node"
-                style={{ opacity: dim ? 0.18 : 1, cursor: 'pointer' }}
-                onMouseDown={e => onNodeDown(e, entry.id)}
-                onMouseEnter={() => setHoverId(entry.id)}
-                onMouseLeave={() => setHoverId(null)}
-              >
-                {showCircles ? (
-                  <>
-                    {isSelected && <circle r={r + 6} className="graph-node-ring" />}
-                    <circle
-                      r={r}
-                      fill={TYPE_FILL[type]}
-                      stroke={TYPE_STROKE[type]}
-                      strokeWidth={isSelected ? 2.5 : 1.5}
-                      className="graph-node-circle"
-                    />
-                    {entry.character ? (
-                      <text textAnchor="middle" dominantBaseline="central"
-                        className="graph-glyph" fontSize={r * 1.05} y={0.5}>
-                        {entry.character}
-                      </text>
-                    ) : (
-                      <text textAnchor="middle" dominantBaseline="central"
-                        className="graph-glyph-abbr" fontSize={r * 0.75}>
-                        {name.slice(0, 2)}
-                      </text>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {/* Character-only mode: glyph as the node, no coloured circle */}
-                    <circle r={r} fill="transparent" stroke="none" /> {/* invisible hit area */}
-                    {isSelected && (
-                      <circle r={r * 0.72} fill="none"
-                        stroke={TYPE_STROKE[type]} strokeWidth={1.5} strokeOpacity={0.7} />
-                    )}
-                    {entry.character ? (
-                      <text textAnchor="middle" dominantBaseline="central"
-                        className="graph-glyph-raw"
-                        fontSize={r * 1.6}
-                        fill={isSelected ? '#fff' : isHovered ? '#e2e8f0' : TYPE_STROKE[type]}
-                        y={0.5}>
-                        {entry.character}
-                      </text>
-                    ) : (
-                      <text textAnchor="middle" dominantBaseline="central"
-                        className="graph-glyph-abbr"
-                        fontSize={r * 0.85}
-                        fill={isSelected ? '#fff' : TYPE_STROKE[type]}>
-                        {name.slice(0, 2)}
-                      </text>
-                    )}
-                  </>
-                )}
-                {showLabel && (
-                  <text y={r + 14} textAnchor="middle" className="graph-label">
-                    {name}
-                  </text>
-                )}
-              </g>
-            )
-          })}
-        </g>
-      </svg>
+      />
 
       {/* ── Obsidian-style control bar ────────────────────────────────────────── */}
       <div className="graph-controls">
@@ -491,7 +691,7 @@ export default function GraphView({ entries, onEdit }) {
 
       {/* Legend */}
       <div className="graph-legend">
-        {[['primitive','Primitive'],['dual','Dual'],['character','Character']].map(([t, label]) => (
+        {[['primitive','💠 Primitive'],['dual','💠 Dual'],['character','Character']].map(([t, label]) => (
           <span key={t} className="legend-item">
             <span className={`legend-dot legend-dot-${t}`} />
             {label}
@@ -511,7 +711,7 @@ export default function GraphView({ entries, onEdit }) {
             <div>
               <p className="graph-info-name">{entryDisplayName(selectedEntry)}</p>
               {selectedEntry.primitiveKeywords?.length > 0 && (
-                <p className="graph-info-sub">Also: {selectedEntry.primitiveKeywords.join(', ')}</p>
+                <p className="graph-info-sub">💠 {selectedEntry.primitiveKeywords.join(' · ')}</p>
               )}
               {(selectedEntry.bookNumber || selectedEntry.heisigNumber) && (
                 <p className="graph-info-meta">
@@ -534,7 +734,7 @@ export default function GraphView({ entries, onEdit }) {
                 {selComponents.map(c => (
                   <span key={c.id} className={`comp-tag comp-tag-${entryType(c)}`}>
                     {c.character && <span>{c.character}</span>}
-                    {entryDisplayName(c)}
+                    {c.primitiveKeywords?.length > 0 ? <>💠 {c.primitiveKeywords[0]}</> : entryDisplayName(c)}
                   </span>
                 ))}
               </div>
