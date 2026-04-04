@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { entryType, entryDisplayName } from '../utils.js'
+import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
 
 function shuffle(arr) {
   const a = [...arr]
@@ -153,7 +153,12 @@ function FlipCard({ card, entryMap, cardIndex, total, mode, onSuccess, onFail, o
               </div>
             )}
 
-            {card.story && <p className="card-story">{card.story}</p>}
+            {card.story && (
+              <p
+                className="card-story"
+                dangerouslySetInnerHTML={{ __html: storyToHtml(card.story) }}
+              />
+            )}
 
             <div className="grade-buttons">
               <button className="btn btn-fail" onClick={onFail}>✗ Missed</button>

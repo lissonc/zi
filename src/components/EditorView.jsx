@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { entryDisplayName, entryType } from '../utils.js'
+import { useState, useMemo, useRef, useLayoutEffect } from 'react'
+import { entryDisplayName, entryType, storyToHtmlMirror } from '../utils.js'
 
 export default function EditorView({ item, entries, entryMap, onSave, onCancel }) {
   const isEditing = Boolean(item?.id)
@@ -13,6 +13,47 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
   const [lessonNumber, setLessonNumber] = useState(item?.lessonNumber ?? '')
   const [story, setStory] = useState(item?.story || '')
   const [componentIds, setComponentIds] = useState(item?.componentIds || [])
+
+  // Story mention state
+  const storyTextareaRef = useRef(null)
+  const storyMirrorRef   = useRef(null)
+  const [mentionSearch, setMentionSearch] = useState(null)
+  const [mentionStart,  setMentionStart]  = useState(-1)
+  const [mentionIndex,  setMentionIndex]  = useState(0)
+
+  // Sync mirror geometry from the textarea's actual computed DOM state.
+  // Using clientWidth (excludes border + scrollbar) guarantees the mirror's
+  // text-content area is identical to the textarea's, regardless of browser
+  // scrollbar behaviour. Copying the resolved lineHeight px value prevents
+  // rounding-mode differences between <div> and <textarea>.
+  useLayoutEffect(() => {
+    const ta = storyTextareaRef.current
+    const mirror = storyMirrorRef.current
+    if (!ta || !mirror) return
+
+    function syncMirror() {
+      const cs = getComputedStyle(ta)
+      mirror.style.fontFamily    = cs.fontFamily
+      mirror.style.fontSize      = cs.fontSize
+      mirror.style.fontWeight    = cs.fontWeight
+      mirror.style.fontStyle     = cs.fontStyle
+      mirror.style.letterSpacing = cs.letterSpacing
+      mirror.style.lineHeight    = cs.lineHeight
+      mirror.style.paddingTop    = cs.paddingTop
+      mirror.style.paddingBottom = cs.paddingBottom
+      mirror.style.paddingLeft   = cs.paddingLeft
+      mirror.style.paddingRight  = cs.paddingRight
+      mirror.style.width  = ta.clientWidth  + 'px'
+      mirror.style.height = ta.clientHeight + 'px'
+      mirror.style.top    = ta.clientTop    + 'px'
+      mirror.style.left   = ta.clientLeft   + 'px'
+    }
+
+    syncMirror()
+    const ro = new ResizeObserver(syncMirror)
+    ro.observe(ta)
+    return () => ro.disconnect()
+  }, [])
   const [compSearch, setCompSearch] = useState('')
 
   const hasKeyword = keyword.trim().length > 0
@@ -49,6 +90,111 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     setComponentIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
+  }
+
+  // Each result is { entry, matchKw } — one per matching keyword so all
+  // primitive keywords are independently selectable. Empty query shows the
+  // first keyword of up to 8 entries; non-empty expands to per-keyword rows.
+  const mentionResults = useMemo(() => {
+    if (mentionSearch === null) return []
+    const q = mentionSearch.toLowerCase()
+
+    if (!q) {
+      return candidates.slice(0, 8).map(e => ({
+        entry: e,
+        matchKw: e.primitiveKeywords?.[0] || e.keyword || e.character || '',
+      }))
+    }
+
+    const results = []
+    for (const e of candidates) {
+      for (const pk of (e.primitiveKeywords || [])) {
+        if (pk.toLowerCase().includes(q)) {
+          results.push({ entry: e, matchKw: pk })
+          if (results.length >= 8) return results
+        }
+      }
+      if (e.keyword?.toLowerCase().includes(q)) {
+        results.push({ entry: e, matchKw: e.keyword })
+        if (results.length >= 8) return results
+      }
+      if (!e.primitiveKeywords?.length && !e.keyword && e.character?.includes(q)) {
+        results.push({ entry: e, matchKw: e.character })
+        if (results.length >= 8) return results
+      }
+    }
+    return results
+  }, [candidates, mentionSearch])
+
+  function handleStoryChange(e) {
+    const val = e.target.value
+    setStory(val)
+    setMentionIndex(0)
+    const cursor = e.target.selectionStart
+    const before = val.slice(0, cursor)
+    const lastOpen  = before.lastIndexOf('[[')
+    const lastClose = before.lastIndexOf(']]')
+    if (lastOpen > lastClose) {
+      const fragment = before.slice(lastOpen + 2)
+      // Stop autocomplete once | is typed — user is writing a display alias
+      if (fragment.includes('|')) {
+        setMentionSearch(null)
+        setMentionStart(-1)
+      } else {
+        setMentionSearch(fragment)
+        setMentionStart(lastOpen)
+      }
+    } else {
+      setMentionSearch(null)
+      setMentionStart(-1)
+    }
+  }
+
+  // entry   — the library entry being referenced
+  // matchKw — the specific primitive keyword the user picked
+  // Inserts [[matchKw]] if matchKw is the canonical name, or
+  // [[canonical|matchKw]] if it is an alias of a different primary keyword.
+  function insertMention({ entry, matchKw }) {
+    const canonical = entry.primitiveKeywords?.[0] || entry.keyword || entry.character || ''
+    const ref = (matchKw === canonical || !matchKw)
+      ? `[[${matchKw || canonical}]]`
+      : `[[${canonical}|${matchKw}]]`
+    const draftLen = mentionSearch?.length ?? 0
+    const newStory = story.slice(0, mentionStart) + ref + story.slice(mentionStart + 2 + draftLen)
+    setStory(newStory)
+    setComponentIds(prev => prev.includes(entry.id) ? prev : [...prev, entry.id])
+    setMentionSearch(null)
+    setMentionStart(-1)
+    requestAnimationFrame(() => {
+      const ta = storyTextareaRef.current
+      if (!ta) return
+      ta.setSelectionRange(mentionStart + ref.length, mentionStart + ref.length)
+      ta.focus()
+    })
+  }
+
+  function handleStoryKeyDown(e) {
+    if (mentionSearch === null || mentionResults.length === 0) return
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setMentionSearch(null)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setMentionIndex(i => Math.min(i + 1, mentionResults.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setMentionIndex(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (mentionSearch !== null && mentionResults.length > 0) {
+        e.preventDefault()
+        insertMention(mentionResults[mentionIndex])
+      }
+    }
+  }
+
+  function handleStoryScroll(e) {
+    if (storyMirrorRef.current)
+      storyMirrorRef.current.scrollTop = e.target.scrollTop
   }
 
   function handlePrimKwChange(e) {
@@ -203,13 +349,50 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
         {/* Mnemonic story */}
         <div className="form-group">
           <label className="form-label">Mnemonic Story</label>
-          <textarea
-            className="form-input form-textarea"
-            value={story}
-            onChange={e => setStory(e.target.value)}
-            placeholder="Describe a vivid scene linking the keyword to the character's components…"
-            rows={4}
-          />
+          <div className="story-field-wrap">
+            <div
+              ref={storyMirrorRef}
+              className="story-mirror"
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: storyToHtmlMirror(story) }}
+            />
+            <textarea
+              ref={storyTextareaRef}
+              className="form-input form-textarea story-textarea"
+              value={story}
+              onChange={handleStoryChange}
+              onKeyDown={handleStoryKeyDown}
+              onScroll={handleStoryScroll}
+              onBlur={() => setTimeout(() => setMentionSearch(null), 150)}
+              placeholder="Describe a vivid scene linking the keyword to the character's components…"
+              rows={4}
+            />
+            {mentionSearch !== null && mentionResults.length > 0 && (
+              <div className="story-mention-dropdown">
+                {mentionResults.map(({ entry: e, matchKw }, i) => {
+                  const canonical = e.primitiveKeywords?.[0] || e.keyword || e.character || ''
+                  const isAlias = matchKw !== canonical
+                  return (
+                    <button
+                      key={`${e.id}:${matchKw}`}
+                      type="button"
+                      className={`story-mention-opt ${i === mentionIndex ? 'active' : ''}`}
+                      onMouseDown={ev => { ev.preventDefault(); insertMention({ entry: e, matchKw }) }}
+                    >
+                      {e.character && <span className="comp-chip-glyph">{e.character}</span>}
+                      <span>
+                        {e.primitiveKeywords?.length > 0 ? `💠 ${matchKw}` : matchKw}
+                        {isAlias && (
+                          <span className="mention-opt-alias"> → {canonical}</span>
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          <p className="form-hint">Type <kbd>[[</kbd> to reference a component inline.</p>
         </div>
 
         {/* Component picker */}

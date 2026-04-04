@@ -640,6 +640,80 @@ html, body, #root {
 }
 .prim-kw-draft::placeholder { color: var(--text-dim); }
 
+/* ── Story field with inline mention highlighting ───────────────────────────── */
+.story-field-wrap {
+  position: relative;
+}
+
+.story-mirror {
+  /* top / left / width / height / padding / font-* / line-height are all
+     set by useLayoutEffect in EditorView — do not add them here */
+  position: absolute;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: scroll;    /* must scroll so handleStoryScroll writes work */
+  scrollbar-width: none;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 0;
+  border-radius: var(--radius);
+}
+.story-mirror::-webkit-scrollbar { display: none; }
+
+.story-mention-chip {
+  color: var(--character-light);
+  text-decoration: underline;
+  text-decoration-color: rgba(96,165,250,0.55);
+  text-underline-offset: 2px;
+}
+
+.story-textarea {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--text);
+  overflow-y: scroll;       /* always reserve scrollbar layout space */
+  scrollbar-width: none;    /* Firefox: hide scrollbar visually */
+}
+.story-textarea::-webkit-scrollbar { display: none; }
+.story-textarea::placeholder { color: var(--text-dim); opacity: 1; }
+
+.story-mention-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  z-index: 50;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.story-mention-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.story-mention-opt:hover,
+.story-mention-opt.active { background: var(--surface); color: var(--text); }
+.mention-opt-alias { font-size: 11px; color: var(--text-dim); margin-left: 4px; }
+.mention-canonical { opacity: 0.3; }
+
 /* ── Header brand navigation ─────────────────────────────────────────────────── */
 .header-brand-link { cursor: pointer; user-select: none; }
 .header-brand-link:hover .header-title,

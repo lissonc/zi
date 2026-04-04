@@ -52,7 +52,7 @@ export default function App() {
 
   useEffect(() => {
     if (currentView !== 'welcome') {
-      localStorage.setItem('radix_library', JSON.stringify({ entries }))
+      localStorage.setItem('radix_library', JSON.stringify({ entries, savedAt: new Date().toISOString() }))
     }
   }, [entries, currentView])
 

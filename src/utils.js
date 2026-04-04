@@ -15,6 +15,51 @@ export function entryDisplayName(entry) {
 }
 
 /**
+ * Convert a story string to safe HTML, wrapping [[name]] references in a
+ * styled span. Used in the editor mirror and in library/review card display.
+ */
+export function storyToHtml(text) {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped.replace(
+    /\[\[([^\]]*)\]\]/g,
+    (_, inner) => {
+      // [[name|alias]] → display alias only; [[name]] → display name
+      const display = inner.includes('|') ? inner.split('|', 2)[1] : inner
+      return `<span class="story-mention-chip">[[${display}]]</span>`
+    }
+  )
+}
+
+/**
+ * Mirror variant for the editor overlay. Must preserve the exact character
+ * width of the raw text so the textarea caret stays aligned. For [[a|b]]
+ * renders the canonical part "a|" dimmed but in-layout; for [[a]] identical
+ * to storyToHtml.
+ */
+export function storyToHtmlMirror(text) {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped.replace(
+    /\[\[([^\]]*)\]\]/g,
+    (_, inner) => {
+      const pipeIdx = inner.indexOf('|')
+      if (pipeIdx < 0) {
+        return `<span class="story-mention-chip">[[${inner}]]</span>`
+      }
+      const canonical = inner.slice(0, pipeIdx)
+      const alias     = inner.slice(pipeIdx + 1)
+      // Keep canonical+pipe in layout (same width as the textarea text) but dim it
+      return `<span class="story-mention-chip">[[<span class="mention-canonical">${canonical}|</span>${alias}]]</span>`
+    }
+  )
+}
+
+/**
  * Migrate old format { primitives[], characters[] } → new { entries[] }.
  * New format is passed through unchanged.
  */

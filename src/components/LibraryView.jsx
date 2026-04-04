@@ -1,5 +1,5 @@
 import { useState, useMemo, memo, useDeferredValue } from 'react'
-import { entryType, entryDisplayName } from '../utils.js'
+import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
 import GraphView from './GraphView.jsx'
 
 function TypeBadge({ type }) {
@@ -45,7 +45,10 @@ const EntryCard = memo(function EntryCard({ entry, entryMap, onEdit, onDelete, o
           )}
 
           {entry.story && (
-            <span className="item-story">{entry.story}</span>
+            <span
+              className="item-story"
+              dangerouslySetInnerHTML={{ __html: storyToHtml(entry.story) }}
+            />
           )}
 
           {components.length > 0 && (
