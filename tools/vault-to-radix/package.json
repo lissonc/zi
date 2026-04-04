@@ -1,0 +1,15 @@
+{
+  "name": "vault-to-radix",
+  "version": "1.0.0",
+  "description": "Convert an Obsidian vault of Heisig character notes into a radix_library.json",
+  "main": "index.js",
+  "bin": {
+    "vault-to-radix": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  }
+}
