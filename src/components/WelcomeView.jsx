@@ -1,0 +1,50 @@
+import { useRef } from 'react'
+
+export default function WelcomeView({ onLoad, onCreate }) {
+  const fileRef = useRef(null)
+
+  function handleFile(e) {
+    const file = e.target.files[0]
+    if (file) onLoad(file)
+  }
+
+  return (
+    <div className="welcome">
+      <div className="welcome-content">
+        <div className="welcome-logo">字</div>
+        <h1 className="welcome-title">Radix</h1>
+        <p className="welcome-subtitle">
+          Learn Hanzi & Kanji through the Heisig Method — deep mnemonic encoding,
+          not rote repetition.
+        </p>
+
+        <div className="welcome-actions">
+          <button className="btn btn-primary btn-lg" onClick={() => fileRef.current.click()}>
+            Upload Library (.json)
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={handleFile}
+          />
+          <button className="btn btn-outline btn-lg" onClick={onCreate}>
+            Create New Library
+          </button>
+        </div>
+
+        <div className="welcome-info">
+          <div className="welcome-info-item">
+            <span className="info-dot primitive-dot" />
+            <span>Primitives — building blocks used in stories</span>
+          </div>
+          <div className="welcome-info-item">
+            <span className="info-dot character-dot" />
+            <span>Characters — assembled from primitives with a mnemonic</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
