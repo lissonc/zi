@@ -424,16 +424,29 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   // Redraw whenever visual state changes (no physics tick needed)
   useEffect(() => { redraw() }, [pan, zoom, showCircles, nodeScale, selectedId, hoverId, connectedIds, radiusMap]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Canvas DPR sizing
+  // Canvas DPR sizing — use ResizeObserver so fullscreen / window resize work
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const dpr = window.devicePixelRatio || 1
-    canvas.width  = W * dpr
-    canvas.height = H * dpr
-    canvas.style.width  = `${W}px`
-    canvas.style.height = `${H}px`
-    redraw()
+    const wrap   = wrapRef.current
+    if (!canvas || !wrap) return
+
+    function syncSize() {
+      const dpr  = window.devicePixelRatio || 1
+      const rect = canvas.getBoundingClientRect()
+      const cssW = rect.width  || W
+      const cssH = rect.height || H
+      if (canvas.width  !== Math.round(cssW * dpr) ||
+          canvas.height !== Math.round(cssH * dpr)) {
+        canvas.width  = Math.round(cssW * dpr)
+        canvas.height = Math.round(cssH * dpr)
+      }
+      redraw()
+    }
+
+    syncSize()
+    const ro = new ResizeObserver(syncSize)
+    ro.observe(wrap)
+    return () => ro.disconnect()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Info panel derived data ──────────────────────────────────────────────────

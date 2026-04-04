@@ -845,11 +845,13 @@ html, body, #root {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: #080f1e;
+  height: 540px;
 }
 
 .graph-canvas {
   display: block;
   width: 100%;
+  height: 100%;
   user-select: none;
   cursor: grab;
 }
@@ -1067,8 +1069,9 @@ html, body, #root {
   border-radius: 0 !important;
   border: none !important;
 }
+/* canvas fills wrap in all modes; ResizeObserver syncs the pixel buffer */
 .graph-wrap:fullscreen .graph-canvas,
-.graph-wrap-fs .graph-canvas { height: 100vh; }
+.graph-wrap-fs .graph-canvas { width: 100%; height: 100%; }
 
 .btn-sm { padding: 5px 12px; font-size: 13px; }
 
