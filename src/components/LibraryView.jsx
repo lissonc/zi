@@ -1,6 +1,7 @@
-import { useState, useMemo, memo, useDeferredValue } from 'react'
+import { useState, useMemo, memo, useDeferredValue, useRef } from 'react'
 import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
 import GraphView from './GraphView.jsx'
+import { useKeyboard } from '../hooks/useKeyboard.js'
 
 function TypeBadge({ type }) {
   const labels = { primitive: '💠 Primitive', character: 'Character', dual: 'Dual' }
@@ -93,6 +94,12 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
   const [filterBook, setFilterBook] = useState('all')
   const [filterLesson, setFilterLesson] = useState('')
   const [filterMastered, setFilterMastered] = useState('all')
+  const searchRef = useRef(null)
+
+  // `/` focuses the search box
+  useKeyboard(e => {
+    if (e.key === '/') { e.preventDefault(); searchRef.current?.focus() }
+  }, [])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -212,11 +219,13 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
         <>
           <div className="library-filters">
             <input
+              ref={searchRef}
               className="search-input"
               type="text"
-              placeholder="Search keyword, character, story…"
+              placeholder="Search keyword, character, story… ( / )"
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.target.blur() } }}
             />
             <select
               className="filter-select"

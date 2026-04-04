@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useLayoutEffect } from 'react'
+import { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react'
 import { entryDisplayName, entryType, storyToHtmlMirror } from '../utils.js'
 
 export default function EditorView({ item, entries, entryMap, onSave, onCancel, onSaveAndNavigate }) {
@@ -14,6 +14,8 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
   const [strokeCount, setStrokeCount] = useState(item?.strokeCount ?? '')
   const [story, setStory] = useState(item?.story || '')
   const [componentIds, setComponentIds] = useState(item?.componentIds || [])
+
+  const formRef = useRef(null)
 
   // Story mention state
   const storyTextareaRef = useRef(null)
@@ -277,6 +279,34 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
     onSaveAndNavigate(data, target)
   }
 
+  // Editor keyboard shortcuts (fire even when inputs are focused)
+  useEffect(() => {
+    function onKeyDown(e) {
+      const mod = e.ctrlKey || e.metaKey
+      // Ctrl/Cmd+S or Ctrl/Cmd+Enter — save
+      if (mod && (e.key === 's' || e.key === 'Enter')) {
+        e.preventDefault()
+        formRef.current?.requestSubmit()
+        return
+      }
+      // Escape — cancel (only when autocomplete dropdown is closed)
+      if (e.key === 'Escape' && mentionSearch === null) {
+        e.preventDefault()
+        onCancel()
+        return
+      }
+      // Alt+ArrowLeft / Alt+ArrowRight — prev / next entry
+      if (e.altKey && e.key === 'ArrowLeft' && prevEntry) {
+        e.preventDefault(); handleNavigate(prevEntry); return
+      }
+      if (e.altKey && e.key === 'ArrowRight' && nextEntry) {
+        e.preventDefault(); handleNavigate(nextEntry); return
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [mentionSearch, onCancel, prevEntry, nextEntry]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const typeLabel = { primitive: '💠 Primitive', character: 'Character', dual: 'Dual' }[derivedType]
   const typeClass = { primitive: 'type-pill-primitive', character: 'type-pill-character', dual: 'type-pill-dual' }[derivedType]
 
@@ -308,7 +338,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
         )}
       </div>
 
-      <form className="editor-form" onSubmit={handleSubmit}>
+      <form ref={formRef} className="editor-form" onSubmit={handleSubmit}>
 
         {/* Glyph + keyword row */}
         <div className="form-row">

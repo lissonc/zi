@@ -145,6 +145,32 @@ export default function App() {
     setCurrentView('library')
   }, [])
 
+  // ── Global keyboard shortcuts ─────────────────────────────────────────────────
+  useEffect(() => {
+    function onKeyDown(e) {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      // Ctrl+Shift+N — new entry (plain Ctrl/Cmd+N is intercepted by browsers)
+      if (e.shiftKey && e.key === 'N' && currentView !== 'editor') {
+        e.preventDefault(); goToEditor(null); return
+      }
+      // Ctrl+Shift+L — go to library
+      if (e.shiftKey && e.key === 'L' && currentView !== 'library' && currentView !== 'welcome') {
+        e.preventDefault(); cancelEdit(); return
+      }
+      // Ctrl+Shift+R — go to review
+      if (e.shiftKey && e.key === 'R' && currentView !== 'review' && currentView !== 'welcome') {
+        e.preventDefault(); setCurrentView('review'); return
+      }
+      // Ctrl/Cmd+S — download library (EditorView handles its own Ctrl+S)
+      if (!e.shiftKey && e.key === 's' && currentView !== 'editor' && currentView !== 'welcome') {
+        e.preventDefault(); downloadDatabase(); return
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [currentView, goToEditor, cancelEdit, downloadDatabase])
+
   const isReview = currentView === 'review'
 
   return (

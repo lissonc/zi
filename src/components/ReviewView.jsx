@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
 
 function shuffle(arr) {
@@ -38,6 +38,17 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
     if (mode === 'random') queue = queue.slice(0, effectiveCount)
     onStart(queue, mode)
   }
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === 'Escape') { e.preventDefault(); onExit(); return }
+      if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && eligible.length > 0) {
+        e.preventDefault(); handleStart(); return
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [eligible.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="review-config">
@@ -124,6 +135,24 @@ function FlipCard({ card, entryMap, cardIndex, total, mode, onSuccess, onFail, o
     .map(id => entryMap.get(id))
     .filter(Boolean)
 
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.target.tagName === 'BUTTON') return
+      if (!revealed && (e.key === ' ' || e.key === 'Enter')) {
+        e.preventDefault(); setRevealed(true); return
+      }
+      if (revealed && (e.key === 'y' || e.key === 'Y' || e.key === '1')) {
+        e.preventDefault(); onSuccess(); return
+      }
+      if (revealed && (e.key === 'n' || e.key === 'N' || e.key === '2')) {
+        e.preventDefault(); onFail(); return
+      }
+      if (e.key === 'Escape') { e.preventDefault(); onExit(); return }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [revealed, onSuccess, onFail, onExit])
+
   return (
     <div className="review-session">
       <div className="review-progress">
@@ -188,6 +217,16 @@ function SessionSummary({ results, onRestart, onExit }) {
   const total = results.length
   const correct = results.filter(r => r.success).length
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.target.tagName === 'BUTTON') return
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRestart(); return }
+      if (e.key === 'Escape') { e.preventDefault(); onExit(); return }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onRestart, onExit])
 
   return (
     <div className="review-summary">

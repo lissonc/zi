@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { entryType, entryDisplayName } from '../utils.js'
+import { useKeyboard } from '../hooks/useKeyboard.js'
 
 // ── Physics constants ─────────────────────────────────────────────────────────
 
@@ -684,6 +685,35 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     onMouseUp()
     setHoverId(null)
   }
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────────
+
+  useKeyboard(e => {
+    switch (e.key) {
+      case '+': case '=':
+        e.preventDefault()
+        zoomTargetRef.current = Math.min(6, zoomTargetRef.current * 1.25)
+        if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom)
+        break
+      case '-':
+        e.preventDefault()
+        zoomTargetRef.current = Math.max(0.15, zoomTargetRef.current * 0.8)
+        if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom)
+        break
+      case 'f': case 'F':
+        e.preventDefault(); fitView(); break
+      case 'c': case 'C':
+        e.preventDefault(); setShowCircles(v => !v); break
+      case 'k': case 'K':
+        e.preventDefault(); setShowKeywords(v => !v); break
+      case 'Escape':
+        e.preventDefault(); setSelectedId(null); break
+      case 'e': case 'E':
+        if (selectedEntry) { e.preventDefault(); onEdit(selectedEntry) }
+        break
+      default: break
+    }
+  }, [selectedEntry, onEdit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render ───────────────────────────────────────────────────────────────────
 

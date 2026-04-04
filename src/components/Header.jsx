@@ -30,6 +30,7 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
           <button
             className={`nav-btn ${currentView === 'library' ? 'active' : ''}`}
             onClick={() => onNavigate('library')}
+            title="Library (Ctrl+Shift+L)"
           >
             Library
             <span className="nav-count">{entryCount}</span>
@@ -37,12 +38,14 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
           <button
             className={`nav-btn ${currentView === 'editor' ? 'active' : ''}`}
             onClick={() => onNavigate('editor')}
+            title="New entry (Ctrl+Shift+N)"
           >
             + Add
           </button>
           <button
             className={`nav-btn ${currentView === 'review' ? 'active' : ''}`}
             onClick={() => onNavigate('review')}
+            title="Review (Ctrl+Shift+R)"
           >
             Review
           </button>
@@ -56,7 +59,7 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
             style={{ display: 'none' }}
             onChange={handleFile}
           />
-          <button className="nav-btn save-btn" onClick={onDownload}>
+          <button className="nav-btn save-btn" onClick={onDownload} title="Download library (Ctrl+S)">
             ↓ Save
           </button>
         </nav>
