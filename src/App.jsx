@@ -104,6 +104,16 @@ export default function App() {
     setCurrentView('library')
   }, [])
 
+  const saveAndNavigate = useCallback((data, nextItem) => {
+    if (data.id) {
+      setEntries(prev => prev.map(e => e.id === data.id ? data : e))
+    } else {
+      setEntries(prev => [...prev, { ...data, id: generateId(), isMastered: false }])
+    }
+    setEditingItem(nextItem)
+    // currentView stays 'editor'
+  }, [])
+
   const deleteEntry = useCallback((id) => {
     const usedByIds = usedByMap.get(id)
     if (usedByIds?.length > 0) {
@@ -166,11 +176,13 @@ export default function App() {
         )}
         {currentView === 'editor' && (
           <EditorView
+            key={editingItem?.id ?? 'new'}
             item={editingItem}
             entries={entries}
             entryMap={entryMap}
             onSave={saveEntry}
             onCancel={cancelEdit}
+            onSaveAndNavigate={saveAndNavigate}
           />
         )}
         {currentView === 'review' && (

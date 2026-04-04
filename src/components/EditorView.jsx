@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useLayoutEffect } from 'react'
 import { entryDisplayName, entryType, storyToHtmlMirror } from '../utils.js'
 
-export default function EditorView({ item, entries, entryMap, onSave, onCancel }) {
+export default function EditorView({ item, entries, entryMap, onSave, onCancel, onSaveAndNavigate }) {
   const isEditing = Boolean(item?.id)
 
   const [character, setCharacter] = useState(item?.character || '')
@@ -59,6 +59,14 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
   const hasKeyword = keyword.trim().length > 0
   const hasPrimKw = primKwList.length > 0 || primKwDraft.trim().length > 0
   const derivedType = hasKeyword && hasPrimKw ? 'dual' : hasKeyword ? 'character' : 'primitive'
+
+  // Prev / next navigation
+  const entryIndex = useMemo(() =>
+    item?.id ? entries.findIndex(e => e.id === item.id) : -1,
+    [entries, item?.id]
+  )
+  const prevEntry = entryIndex > 0 ? entries[entryIndex - 1] : null
+  const nextEntry = entryIndex >= 0 && entryIndex < entries.length - 1 ? entries[entryIndex + 1] : null
 
   // Exclude self from component candidates
   const candidates = useMemo(() =>
@@ -218,17 +226,11 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     }
   }
 
-  function handleSubmit(e) {
-    e.preventDefault()
+  function buildData() {
     const finalList = primKwDraft.trim()
       ? [...primKwList, primKwDraft.trim()]
       : primKwList
-    const hasFinalPrimKw = finalList.length > 0
-    if (!hasKeyword && !hasFinalPrimKw) {
-      alert('An entry must have at least a keyword or one primitive keyword.')
-      return
-    }
-    onSave({
+    return {
       ...(item || {}),
       character: character.trim(),
       keyword: keyword.trim(),
@@ -239,7 +241,28 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
       story: story.trim(),
       componentIds,
       isMastered: item?.isMastered || false,
-    })
+    }
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    const data = buildData()
+    const hasFinalPrimKw = data.primitiveKeywords.length > 0
+    if (!data.keyword && !hasFinalPrimKw) {
+      alert('An entry must have at least a keyword or one primitive keyword.')
+      return
+    }
+    onSave(data)
+  }
+
+  function handleNavigate(target) {
+    const data = buildData()
+    const hasFinalPrimKw = data.primitiveKeywords.length > 0
+    if (!data.keyword && !hasFinalPrimKw) {
+      alert('An entry must have at least a keyword or one primitive keyword.')
+      return
+    }
+    onSaveAndNavigate(data, target)
   }
 
   const typeLabel = { primitive: '💠 Primitive', character: 'Character', dual: '💠 Dual' }[derivedType]
@@ -252,6 +275,25 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
           {isEditing ? 'Edit Entry' : 'Add Entry'}
         </h2>
         <span className={`type-pill ${typeClass}`}>{typeLabel}</span>
+        {isEditing && onSaveAndNavigate && (prevEntry || nextEntry) && (
+          <div className="editor-nav">
+            <button
+              type="button"
+              className="editor-nav-btn"
+              disabled={!prevEntry}
+              onClick={() => prevEntry && handleNavigate(prevEntry)}
+              title={prevEntry ? `Previous: ${prevEntry.keyword || prevEntry.primitiveKeywords?.[0] || prevEntry.character}` : undefined}
+            >←</button>
+            <span className="editor-nav-pos">{entryIndex + 1} / {entries.length}</span>
+            <button
+              type="button"
+              className="editor-nav-btn"
+              disabled={!nextEntry}
+              onClick={() => nextEntry && handleNavigate(nextEntry)}
+              title={nextEntry ? `Next: ${nextEntry.keyword || nextEntry.primitiveKeywords?.[0] || nextEntry.character}` : undefined}
+            >→</button>
+          </div>
+        )}
       </div>
 
       <form className="editor-form" onSubmit={handleSubmit}>

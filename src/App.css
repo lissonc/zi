@@ -504,6 +504,33 @@ html, body, #root {
 .editor-title {
   font-size: 22px;
   font-weight: 700;
+  flex: 1;
+}
+
+.editor-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.editor-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius);
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: border-color 0.15s, color 0.15s;
+}
+.editor-nav-btn:hover:not(:disabled) { border-color: var(--border-light); color: var(--text); }
+.editor-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.editor-nav-pos {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 44px;
+  text-align: center;
 }
 
 
