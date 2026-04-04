@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useLayoutEffect } from 'react'
 import { entryDisplayName, entryType, storyToHtml } from '../utils.js'
 
 export default function EditorView({ item, entries, entryMap, onSave, onCancel }) {
@@ -20,6 +20,40 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
   const [mentionSearch, setMentionSearch] = useState(null)
   const [mentionStart,  setMentionStart]  = useState(-1)
   const [mentionIndex,  setMentionIndex]  = useState(0)
+
+  // Sync mirror geometry from the textarea's actual computed DOM state.
+  // Using clientWidth (excludes border + scrollbar) guarantees the mirror's
+  // text-content area is identical to the textarea's, regardless of browser
+  // scrollbar behaviour. Copying the resolved lineHeight px value prevents
+  // rounding-mode differences between <div> and <textarea>.
+  useLayoutEffect(() => {
+    const ta = storyTextareaRef.current
+    const mirror = storyMirrorRef.current
+    if (!ta || !mirror) return
+
+    function syncMirror() {
+      const cs = getComputedStyle(ta)
+      mirror.style.fontFamily    = cs.fontFamily
+      mirror.style.fontSize      = cs.fontSize
+      mirror.style.fontWeight    = cs.fontWeight
+      mirror.style.fontStyle     = cs.fontStyle
+      mirror.style.letterSpacing = cs.letterSpacing
+      mirror.style.lineHeight    = cs.lineHeight
+      mirror.style.paddingTop    = cs.paddingTop
+      mirror.style.paddingBottom = cs.paddingBottom
+      mirror.style.paddingLeft   = cs.paddingLeft
+      mirror.style.paddingRight  = cs.paddingRight
+      mirror.style.width  = ta.clientWidth  + 'px'
+      mirror.style.height = ta.clientHeight + 'px'
+      mirror.style.top    = ta.clientTop    + 'px'
+      mirror.style.left   = ta.clientLeft   + 'px'
+    }
+
+    syncMirror()
+    const ro = new ResizeObserver(syncMirror)
+    ro.observe(ta)
+    return () => ro.disconnect()
+  }, [])
   const [compSearch, setCompSearch] = useState('')
 
   const hasKeyword = keyword.trim().length > 0

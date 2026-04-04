@@ -646,20 +646,17 @@ html, body, #root {
 }
 
 .story-mirror {
+  /* top / left / width / height / padding / font-* / line-height are all
+     set by useLayoutEffect in EditorView — do not add them here */
   position: absolute;
-  inset: 0;
-  padding: 9px 12px;        /* must match .form-input padding */
-  font-family: inherit;
-  font-size: 15px;
-  line-height: 1.5;
+  box-sizing: border-box;
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-y: scroll;       /* always reserve scrollbar layout space */
-  scrollbar-width: none;    /* Firefox: hide scrollbar visually */
+  overflow-y: scroll;    /* must scroll so handleStoryScroll writes work */
+  scrollbar-width: none;
   color: var(--text);
   pointer-events: none;
   z-index: 0;
-  border: 1px solid transparent;
   border-radius: var(--radius);
 }
 .story-mirror::-webkit-scrollbar { display: none; }
