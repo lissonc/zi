@@ -712,6 +712,7 @@ html, body, #root {
 .story-mention-opt:hover,
 .story-mention-opt.active { background: var(--surface); color: var(--text); }
 .mention-opt-alias { font-size: 11px; color: var(--text-dim); margin-left: 4px; }
+.mention-canonical { opacity: 0.3; }
 
 /* ── Header brand navigation ─────────────────────────────────────────────────── */
 .header-brand-link { cursor: pointer; user-select: none; }

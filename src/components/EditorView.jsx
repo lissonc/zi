@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useLayoutEffect } from 'react'
-import { entryDisplayName, entryType, storyToHtml } from '../utils.js'
+import { entryDisplayName, entryType, storyToHtmlMirror } from '../utils.js'
 
 export default function EditorView({ item, entries, entryMap, onSave, onCancel }) {
   const isEditing = Boolean(item?.id)
@@ -354,7 +354,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
               ref={storyMirrorRef}
               className="story-mirror"
               aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: storyToHtml(story) }}
+              dangerouslySetInnerHTML={{ __html: storyToHtmlMirror(story) }}
             />
             <textarea
               ref={storyTextareaRef}
