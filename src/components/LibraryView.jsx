@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { entryType, entryDisplayName } from '../utils.js'
+import GraphView from './GraphView.jsx'
 
 function TypeBadge({ type }) {
   const labels = { primitive: 'Primitive', character: 'Character', dual: 'Dual' }
@@ -82,6 +83,7 @@ function EntryCard({ entry, entries, onEdit, onDelete, onToggleMastered }) {
 }
 
 export default function LibraryView({ entries, onEdit, onDelete, onToggleMastered, onNew, onReview }) {
+  const [viewMode, setViewMode] = useState('list') // 'list' | 'graph'
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('all') // 'all'|'primitive'|'character'|'dual'
   const [filterBook, setFilterBook] = useState('all')
@@ -139,6 +141,22 @@ export default function LibraryView({ entries, onEdit, onDelete, onToggleMastere
           <span className="stat mastered-stat">{counts.mastered} Mastered</span>
         </div>
         <div className="library-actions">
+          <div className="view-toggle">
+            <button
+              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              ☰ List
+            </button>
+            <button
+              className={`view-btn ${viewMode === 'graph' ? 'active' : ''}`}
+              onClick={() => setViewMode('graph')}
+              title="Graph view"
+            >
+              ⬡ Graph
+            </button>
+          </div>
           <button className="btn btn-primary" onClick={onNew}>+ Add Entry</button>
           {reviewable.length > 0 && (
             <button className="btn btn-outline" onClick={onReview}>Review</button>
@@ -146,74 +164,82 @@ export default function LibraryView({ entries, onEdit, onDelete, onToggleMastere
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="library-filters">
-        <input
-          className="search-input"
-          type="text"
-          placeholder="Search keyword, character, story…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <div className="filter-tabs">
-          {[['all', 'All'], ['primitive', 'Primitives'], ['dual', 'Dual'], ['character', 'Characters']].map(([v, label]) => (
-            <button
-              key={v}
-              className={`filter-tab ${filterType === v ? 'active' : ''}`}
-              onClick={() => setFilterType(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <select
-          className="filter-select"
-          value={filterBook}
-          onChange={e => setFilterBook(e.target.value)}
-        >
-          <option value="all">All Books</option>
-          <option value="1">Book 1</option>
-          <option value="2">Book 2</option>
-        </select>
-        <input
-          className="filter-input"
-          type="number"
-          placeholder="Lesson #"
-          value={filterLesson}
-          onChange={e => setFilterLesson(e.target.value)}
-          min="1"
-        />
-        <select
-          className="filter-select"
-          value={filterMastered}
-          onChange={e => setFilterMastered(e.target.value)}
-        >
-          <option value="all">All</option>
-          <option value="mastered">Mastered</option>
-          <option value="unmastered">Unmastered</option>
-        </select>
-      </div>
+      {/* Graph view */}
+      {viewMode === 'graph' && (
+        <GraphView entries={entries} onEdit={onEdit} />
+      )}
 
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className="empty-state">
-          {entries.length === 0
-            ? 'Your library is empty. Click "+ Add Entry" to begin.'
-            : 'No entries match your filters.'}
-        </div>
-      ) : (
-        <div className="item-list">
-          {filtered.map(entry => (
-            <EntryCard
-              key={entry.id}
-              entry={entry}
-              entries={entries}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onToggleMastered={onToggleMastered}
+      {/* List view */}
+      {viewMode === 'list' && (
+        <>
+          <div className="library-filters">
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Search keyword, character, story…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
             />
-          ))}
-        </div>
+            <div className="filter-tabs">
+              {[['all', 'All'], ['primitive', 'Primitives'], ['dual', 'Dual'], ['character', 'Characters']].map(([v, label]) => (
+                <button
+                  key={v}
+                  className={`filter-tab ${filterType === v ? 'active' : ''}`}
+                  onClick={() => setFilterType(v)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select
+              className="filter-select"
+              value={filterBook}
+              onChange={e => setFilterBook(e.target.value)}
+            >
+              <option value="all">All Books</option>
+              <option value="1">Book 1</option>
+              <option value="2">Book 2</option>
+            </select>
+            <input
+              className="filter-input"
+              type="number"
+              placeholder="Lesson #"
+              value={filterLesson}
+              onChange={e => setFilterLesson(e.target.value)}
+              min="1"
+            />
+            <select
+              className="filter-select"
+              value={filterMastered}
+              onChange={e => setFilterMastered(e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="mastered">Mastered</option>
+              <option value="unmastered">Unmastered</option>
+            </select>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              {entries.length === 0
+                ? 'Your library is empty. Click "+ Add Entry" to begin.'
+                : 'No entries match your filters.'}
+            </div>
+          ) : (
+            <div className="item-list">
+              {filtered.map(entry => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  entries={entries}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onToggleMastered={onToggleMastered}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
