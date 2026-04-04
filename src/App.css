@@ -640,6 +640,76 @@ html, body, #root {
 }
 .prim-kw-draft::placeholder { color: var(--text-dim); }
 
+/* ── Story field with inline mention highlighting ───────────────────────────── */
+.story-field-wrap {
+  position: relative;
+}
+
+.story-mirror {
+  position: absolute;
+  inset: 0;
+  padding: 9px 12px;        /* must match .form-input padding */
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.story-mention-chip {
+  color: var(--character-light);
+  text-decoration: underline;
+  text-decoration-color: rgba(96,165,250,0.55);
+  text-underline-offset: 2px;
+}
+
+.story-textarea {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--text);
+}
+.story-textarea::placeholder { color: var(--text-dim); opacity: 1; }
+
+.story-mention-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  z-index: 50;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.story-mention-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.story-mention-opt:hover,
+.story-mention-opt.active { background: var(--surface); color: var(--text); }
+
 /* ── Header brand navigation ─────────────────────────────────────────────────── */
 .header-brand-link { cursor: pointer; user-select: none; }
 .header-brand-link:hover .header-title,

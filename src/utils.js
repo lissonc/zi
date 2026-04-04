@@ -15,6 +15,21 @@ export function entryDisplayName(entry) {
 }
 
 /**
+ * Convert a story string to safe HTML, wrapping [[name]] references in a
+ * styled span. Used in the editor mirror and in library/review card display.
+ */
+export function storyToHtml(text) {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped.replace(
+    /\[\[([^\]]*)\]\]/g,
+    (_, name) => `<span class="story-mention-chip">[[${name}]]</span>`
+  )
+}
+
+/**
  * Migrate old format { primitives[], characters[] } → new { entries[] }.
  * New format is passed through unchanged.
  */
