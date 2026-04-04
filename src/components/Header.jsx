@@ -13,7 +13,13 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
 
   return (
     <header className="header">
-      <div className="header-brand">
+      <div
+        className="header-brand header-brand-link"
+        onClick={() => onNavigate(hasLibrary ? 'library' : 'welcome')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => e.key === 'Enter' && onNavigate(hasLibrary ? 'library' : 'welcome')}
+      >
         <span className="header-logo">字</span>
         <span className="header-title">Radix</span>
         <span className="mode-badge">Mode: Traditional Hanzi</span>

@@ -6,7 +6,8 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
 
   const [character, setCharacter] = useState(item?.character || '')
   const [keyword, setKeyword] = useState(item?.keyword || '')
-  const [primKwInput, setPrimKwInput] = useState(item?.primitiveKeywords?.join(', ') || '')
+  const [primKwList, setPrimKwList] = useState(item?.primitiveKeywords || [])
+  const [primKwDraft, setPrimKwDraft] = useState('')
   const [heisigNumber, setHeisigNumber] = useState(item?.heisigNumber ?? '')
   const [bookNumber, setBookNumber] = useState(item?.bookNumber ?? 1)
   const [lessonNumber, setLessonNumber] = useState(item?.lessonNumber ?? '')
@@ -14,9 +15,8 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
   const [componentIds, setComponentIds] = useState(item?.componentIds || [])
   const [compSearch, setCompSearch] = useState('')
 
-  const primitiveKeywords = primKwInput.split(',').map(s => s.trim()).filter(Boolean)
   const hasKeyword = keyword.trim().length > 0
-  const hasPrimKw = primitiveKeywords.length > 0
+  const hasPrimKw = primKwList.length > 0 || primKwDraft.trim().length > 0
   const derivedType = hasKeyword && hasPrimKw ? 'dual' : hasKeyword ? 'character' : 'primitive'
 
   // Exclude self from component candidates
@@ -51,9 +51,34 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     )
   }
 
+  function handlePrimKwChange(e) {
+    const val = e.target.value
+    if (val.includes(',')) {
+      const parts = val.split(',')
+      const toCommit = parts.slice(0, -1).map(s => s.trim()).filter(Boolean)
+      const remaining = parts[parts.length - 1]
+      if (toCommit.length > 0) setPrimKwList(prev => [...prev, ...toCommit])
+      setPrimKwDraft(remaining)
+    } else {
+      setPrimKwDraft(val)
+    }
+  }
+
+  function handlePrimKwBlur() {
+    const trimmed = primKwDraft.trim()
+    if (trimmed) {
+      setPrimKwList(prev => [...prev, trimmed])
+      setPrimKwDraft('')
+    }
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
-    if (!hasKeyword && !hasPrimKw) {
+    const finalList = primKwDraft.trim()
+      ? [...primKwList, primKwDraft.trim()]
+      : primKwList
+    const hasFinalPrimKw = finalList.length > 0
+    if (!hasKeyword && !hasFinalPrimKw) {
       alert('An entry must have at least a keyword or one primitive keyword.')
       return
     }
@@ -61,7 +86,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
       ...(item || {}),
       character: character.trim(),
       keyword: keyword.trim(),
-      primitiveKeywords,
+      primitiveKeywords: finalList,
       heisigNumber: heisigNumber !== '' ? Number(heisigNumber) : null,
       bookNumber: hasKeyword ? Number(bookNumber) : null,
       lessonNumber: lessonNumber !== '' ? Number(lessonNumber) : null,
@@ -113,14 +138,29 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
         {/* Primitive keywords */}
         <div className="form-group">
           <label className="form-label">💠 Primitive Keywords</label>
-          <input
-            className="form-input"
-            value={primKwInput}
-            onChange={e => setPrimKwInput(e.target.value)}
-            placeholder="e.g. person, human, walking legs  (comma-separated)"
-          />
+          <div className="prim-kw-field">
+            {primKwList.map((kw, i) => (
+              <span key={i} className="prim-kw-chip">
+                💠 {kw}
+                <button
+                  type="button"
+                  className="prim-kw-chip-remove"
+                  onClick={() => setPrimKwList(prev => prev.filter((_, j) => j !== i))}
+                  aria-label={`Remove ${kw}`}
+                >×</button>
+              </span>
+            ))}
+            <input
+              className="prim-kw-draft"
+              value={primKwDraft}
+              onChange={handlePrimKwChange}
+              onBlur={handlePrimKwBlur}
+              placeholder={primKwList.length === 0 ? 'e.g. person, human, walking legs' : 'Add another…'}
+            />
+          </div>
           <p className="form-hint">
             The 💠 name(s) used when this entry appears as a building block in stories.
+            Type a name and press <kbd>,</kbd> or leave the field to add it as a chip.
             Leave blank if this character is never used as a component.
           </p>
         </div>
