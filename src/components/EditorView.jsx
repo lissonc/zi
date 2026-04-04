@@ -11,6 +11,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
   const [heisigNumber, setHeisigNumber] = useState(item?.heisigNumber ?? '')
   const [bookNumber, setBookNumber] = useState(item?.bookNumber ?? 1)
   const [lessonNumber, setLessonNumber] = useState(item?.lessonNumber ?? '')
+  const [strokeCount, setStrokeCount] = useState(item?.strokeCount ?? '')
   const [story, setStory] = useState(item?.story || '')
   const [componentIds, setComponentIds] = useState(item?.componentIds || [])
 
@@ -238,6 +239,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
       heisigNumber: heisigNumber !== '' ? Number(heisigNumber) : null,
       bookNumber: hasKeyword ? Number(bookNumber) : null,
       lessonNumber: lessonNumber !== '' ? Number(lessonNumber) : null,
+      strokeCount: strokeCount !== '' ? Number(strokeCount) : null,
       story: story.trim(),
       componentIds,
       isMastered: item?.isMastered || false,
@@ -382,6 +384,34 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
                 value={lessonNumber}
                 onChange={e => setLessonNumber(e.target.value)}
                 placeholder="e.g. 5"
+                min="1"
+              />
+            </div>
+            <div className="form-group flex-1">
+              <label className="form-label">Strokes</label>
+              <input
+                className="form-input"
+                type="number"
+                value={strokeCount}
+                onChange={e => setStrokeCount(e.target.value)}
+                placeholder="e.g. 6"
+                min="1"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Stroke count for primitives (no Heisig metadata row) */}
+        {!hasKeyword && (
+          <div className="form-row">
+            <div className="form-group" style={{ maxWidth: 120 }}>
+              <label className="form-label">Strokes</label>
+              <input
+                className="form-input"
+                type="number"
+                value={strokeCount}
+                onChange={e => setStrokeCount(e.target.value)}
+                placeholder="e.g. 2"
                 min="1"
               />
             </div>

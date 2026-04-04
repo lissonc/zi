@@ -339,6 +339,19 @@ html, body, #root {
 
 .item-list { display: flex; flex-direction: column; gap: 8px; }
 
+.stroke-group { display: flex; flex-direction: column; gap: 8px; }
+.stroke-group-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 4px;
+}
+.stroke-group:first-child .stroke-group-header { margin-top: 0; }
+
 /* Skip paint/layout for off-screen cards — zero JS cost */
 .item-list > * {
   content-visibility: auto;

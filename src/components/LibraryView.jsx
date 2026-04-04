@@ -36,11 +36,12 @@ const EntryCard = memo(function EntryCard({ entry, entryMap, onEdit, onDelete, o
             </span>
           )}
 
-          {type !== 'primitive' && (entry.bookNumber || entry.heisigNumber) && (
+          {(entry.strokeCount || (type !== 'primitive' && (entry.bookNumber || entry.heisigNumber))) && (
             <span className="item-meta">
-              {entry.bookNumber && `Book ${entry.bookNumber}`}
-              {entry.lessonNumber && ` · Lesson ${entry.lessonNumber}`}
-              {entry.heisigNumber && ` · #${entry.heisigNumber}`}
+              {entry.strokeCount && `${entry.strokeCount} strokes`}
+              {type !== 'primitive' && entry.bookNumber && `${entry.strokeCount ? ' · ' : ''}Book ${entry.bookNumber}`}
+              {type !== 'primitive' && entry.lessonNumber && ` · Lesson ${entry.lessonNumber}`}
+              {type !== 'primitive' && entry.heisigNumber && ` · #${entry.heisigNumber}`}
             </span>
           )}
 
@@ -137,6 +138,23 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
 
   // Defer list rendering so search input stays responsive
   const deferredFiltered = useDeferredValue(filtered)
+
+  // Group by stroke count if any entry in the filtered set has one
+  const strokeGroups = useMemo(() => {
+    if (!deferredFiltered.some(e => e.strokeCount != null)) return null
+    const map = new Map()
+    for (const e of deferredFiltered) {
+      const key = e.strokeCount ?? null
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(e)
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => {
+        if (a === null) return 1
+        if (b === null) return -1
+        return a - b
+      })
+  }, [deferredFiltered])
 
   return (
     <div className="library">
@@ -235,16 +253,37 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
             </div>
           ) : (
             <div className="item-list">
-              {deferredFiltered.map(entry => (
-                <EntryCard
-                  key={entry.id}
-                  entry={entry}
-                  entryMap={entryMap}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onToggleMastered={onToggleMastered}
-                />
-              ))}
+              {strokeGroups === null
+                ? deferredFiltered.map(entry => (
+                    <EntryCard
+                      key={entry.id}
+                      entry={entry}
+                      entryMap={entryMap}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onToggleMastered={onToggleMastered}
+                    />
+                  ))
+                : strokeGroups.map(([count, groupEntries]) => (
+                    <div key={count ?? 'unknown'} className="stroke-group">
+                      <div className="stroke-group-header">
+                        {count != null
+                          ? `${count} stroke${count === 1 ? '' : 's'}`
+                          : 'No stroke count'}
+                      </div>
+                      {groupEntries.map(entry => (
+                        <EntryCard
+                          key={entry.id}
+                          entry={entry}
+                          entryMap={entryMap}
+                          onEdit={onEdit}
+                          onDelete={onDelete}
+                          onToggleMastered={onToggleMastered}
+                        />
+                      ))}
+                    </div>
+                  ))
+              }
             </div>
           )}
         </>
