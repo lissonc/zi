@@ -1,42 +1,13 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Dependencies
+node_modules/
 
-# Virtual Environment
-venv/
-ENV/
-env/
+# Build output
+dist/
 
 # macOS
 .DS_Store
 .AppleDouble
-.LSOverride
-Icon
 ._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
 
 # IDEs
 .idea/
@@ -44,5 +15,9 @@ Icon
 *.swp
 *.swo
 
-# Project specific
-app/static/data/hanzi_data.json  # Generated on run 
+# Logs
+*.log
+npm-debug.log*
+
+# Local data
+radix_library.json
