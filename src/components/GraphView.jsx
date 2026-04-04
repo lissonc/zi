@@ -291,6 +291,8 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   const zoomRef       = useRef(1)
   const zoomTargetRef = useRef(1)
   const zoomRafRef    = useRef(null)
+  const zoomOriginRef = useRef(null)   // canvas-space cursor pos at last wheel event
+  const worldOriginRef = useRef(null)  // world-space point under cursor at last wheel event
   useEffect(() => { panRef.current = pan }, [pan])
 
   const canvasDragRef = useRef(null)   // background pan drag
@@ -424,6 +426,35 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   // Redraw whenever visual state changes (no physics tick needed)
   useEffect(() => { redraw() }, [pan, zoom, showCircles, nodeScale, selectedId, hoverId, connectedIds, radiusMap]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Non-passive wheel listener — must be added via addEventListener so we can
+  // call e.preventDefault() (React's onWheel is passive in Chrome, which ignores it)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    function handleWheel(e) {
+      e.preventDefault()
+      let delta = e.deltaY
+      if (e.deltaMode === 1) delta *= 20
+      else if (e.deltaMode === 2) delta *= 300
+      const cap = e.ctrlKey ? 15 : 120
+      delta = Math.sign(delta) * Math.min(Math.abs(delta), cap)
+      const factor = Math.exp(-delta * (e.ctrlKey ? 0.015 : 0.001))
+      zoomTargetRef.current = Math.max(0.15, Math.min(6, zoomTargetRef.current * factor))
+
+      // Capture the world point under the cursor so we can zoom towards it
+      const rect   = canvas.getBoundingClientRect()
+      const cx     = (e.clientX - rect.left) * (W / rect.width)
+      const cy     = (e.clientY - rect.top)  * (H / rect.height)
+      const { pan: p } = panZoomRef.current
+      zoomOriginRef.current  = { x: cx, y: cy }
+      worldOriginRef.current = { x: (cx - p.x) / zoomRef.current, y: (cy - p.y) / zoomRef.current }
+
+      if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom)
+    }
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', handleWheel)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Canvas DPR sizing — use ResizeObserver so fullscreen / window resize work
   useEffect(() => {
     const canvas = canvasRef.current
@@ -467,19 +498,37 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   // ── View controls ────────────────────────────────────────────────────────────
 
   function animateZoom() {
-    setZoom(current => {
-      const target = zoomTargetRef.current
-      const diff   = target - current
-      if (Math.abs(diff) < 0.0008) {
-        zoomRef.current    = target
-        zoomRafRef.current = null
-        return target
+    const current = zoomRef.current
+    const target  = zoomTargetRef.current
+    const diff    = target - current
+    const done    = Math.abs(diff) < 0.0008
+    const next    = done ? target : current + diff * 0.18
+
+    zoomRef.current = next
+
+    // Keep the cursor world-point fixed under the cursor while zooming
+    const origin  = zoomOriginRef.current
+    const worldPt = worldOriginRef.current
+    if (origin && worldPt) {
+      const newPan = {
+        x: origin.x - worldPt.x * next,
+        y: origin.y - worldPt.y * next,
       }
-      const next = current + diff * 0.18
-      zoomRef.current    = next
+      panRef.current     = newPan
+      panZoomRef.current = { pan: newPan, zoom: next }
+    } else {
+      panZoomRef.current = { ...panZoomRef.current, zoom: next }
+    }
+
+    redraw()
+
+    if (done) {
+      zoomRafRef.current = null
+      setZoom(next)
+      if (origin && worldPt) setPan(panRef.current)
+    } else {
       zoomRafRef.current = requestAnimationFrame(animateZoom)
-      return next
-    })
+    }
   }
 
   function fitView() {
@@ -605,21 +654,6 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     setHoverId(null)
   }
 
-  function onWheel(e) {
-    e.preventDefault()
-    let delta = e.deltaY
-    if (e.deltaMode === 1) delta *= 20
-    else if (e.deltaMode === 2) delta *= 300
-    const cap = e.ctrlKey ? 15 : 120
-    delta = Math.sign(delta) * Math.min(Math.abs(delta), cap)
-    const sensitivity = e.ctrlKey ? 0.015 : 0.001
-    const factor = Math.exp(-delta * sensitivity)
-    zoomTargetRef.current = Math.max(0.15, Math.min(6, zoomTargetRef.current * factor))
-    if (!zoomRafRef.current) {
-      zoomRafRef.current = requestAnimationFrame(animateZoom)
-    }
-  }
-
   // ── Render ───────────────────────────────────────────────────────────────────
 
   const isCapped = !showAll && entries.length > GRAPH_NODE_LIMIT
@@ -642,7 +676,6 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseLeave}
-        onWheel={onWheel}
       />
 
       {/* ── Obsidian-style control bar ────────────────────────────────────────── */}
@@ -662,9 +695,9 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
         <div className="ctrl-divider" />
 
         {/* Zoom */}
-        <button className="ctrl-btn" onClick={() => { zoomTargetRef.current = Math.max(0.15, zoomTargetRef.current * 0.8); if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom) }} title="Zoom out">−</button>
+        <button className="ctrl-btn" onClick={() => { zoomOriginRef.current = null; zoomTargetRef.current = Math.max(0.15, zoomTargetRef.current * 0.8); if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom) }} title="Zoom out">−</button>
         <button className="ctrl-btn" onClick={fitView} title="Fit all nodes">⊡</button>
-        <button className="ctrl-btn" onClick={() => { zoomTargetRef.current = Math.min(6, zoomTargetRef.current * 1.25); if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom) }} title="Zoom in">+</button>
+        <button className="ctrl-btn" onClick={() => { zoomOriginRef.current = null; zoomTargetRef.current = Math.min(6, zoomTargetRef.current * 1.25); if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom) }} title="Zoom in">+</button>
 
         <div className="ctrl-divider" />
 
