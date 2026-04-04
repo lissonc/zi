@@ -147,7 +147,7 @@ function FlipCard({ card, entryMap, cardIndex, total, mode, onSuccess, onFail, o
                 {components.map(c => (
                   <span key={c.id} className={`comp-tag comp-tag-${entryType(c)}`}>
                     {c.character && <span>{c.character}</span>}
-                    {entryDisplayName(c)}
+                    {c.primitiveKeywords?.length > 0 ? <>💠 {c.primitiveKeywords[0]}</> : entryDisplayName(c)}
                   </span>
                 ))}
               </div>

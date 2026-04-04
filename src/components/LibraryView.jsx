@@ -3,7 +3,7 @@ import { entryType, entryDisplayName } from '../utils.js'
 import GraphView from './GraphView.jsx'
 
 function TypeBadge({ type }) {
-  const labels = { primitive: 'Primitive', character: 'Character', dual: 'Dual' }
+  const labels = { primitive: '💠 Primitive', character: 'Character', dual: '💠 Dual' }
   return <span className={`type-badge type-badge-${type}`}>{labels[type]}</span>
 }
 
@@ -32,7 +32,7 @@ const EntryCard = memo(function EntryCard({ entry, entryMap, onEdit, onDelete, o
 
           {entry.primitiveKeywords?.length > 0 && (
             <span className="item-prim-keywords">
-              As primitive: {entry.primitiveKeywords.join(', ')}
+              💠 {entry.primitiveKeywords.join(' · ')}
             </span>
           )}
 
@@ -57,7 +57,7 @@ const EntryCard = memo(function EntryCard({ entry, entryMap, onEdit, onDelete, o
                   title={c.primitiveKeywords?.join(', ') || c.keyword}
                 >
                   {c.character && <span>{c.character}</span>}
-                  {entryDisplayName(c)}
+                  {c.primitiveKeywords?.length > 0 ? <>💠 {c.primitiveKeywords[0]}</> : entryDisplayName(c)}
                 </span>
               ))}
             </div>
@@ -140,8 +140,8 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
       {/* Toolbar */}
       <div className="library-toolbar">
         <div className="library-stats">
-          <span className="stat primitive-stat">{counts.primitive} Primitives</span>
-          <span className="stat dual-stat">{counts.dual} Dual</span>
+          <span className="stat primitive-stat">💠 {counts.primitive} Primitives</span>
+          <span className="stat dual-stat">💠 {counts.dual} Dual</span>
           <span className="stat character-stat">{counts.character} Characters</span>
           <span className="stat mastered-stat">{counts.mastered} Mastered</span>
         </div>
@@ -186,7 +186,7 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
               onChange={e => setSearch(e.target.value)}
             />
             <div className="filter-tabs">
-              {[['all', 'All'], ['primitive', 'Primitives'], ['dual', 'Dual'], ['character', 'Characters']].map(([v, label]) => (
+              {[['all', 'All'], ['primitive', '💠 Primitives'], ['dual', '💠 Dual'], ['character', 'Characters']].map(([v, label]) => (
                 <button
                   key={v}
                   className={`filter-tab ${filterType === v ? 'active' : ''}`}

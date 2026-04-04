@@ -691,7 +691,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
       {/* Legend */}
       <div className="graph-legend">
-        {[['primitive','Primitive'],['dual','Dual'],['character','Character']].map(([t, label]) => (
+        {[['primitive','💠 Primitive'],['dual','💠 Dual'],['character','Character']].map(([t, label]) => (
           <span key={t} className="legend-item">
             <span className={`legend-dot legend-dot-${t}`} />
             {label}
@@ -711,7 +711,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
             <div>
               <p className="graph-info-name">{entryDisplayName(selectedEntry)}</p>
               {selectedEntry.primitiveKeywords?.length > 0 && (
-                <p className="graph-info-sub">Also: {selectedEntry.primitiveKeywords.join(', ')}</p>
+                <p className="graph-info-sub">💠 {selectedEntry.primitiveKeywords.join(' · ')}</p>
               )}
               {(selectedEntry.bookNumber || selectedEntry.heisigNumber) && (
                 <p className="graph-info-meta">
@@ -734,7 +734,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
                 {selComponents.map(c => (
                   <span key={c.id} className={`comp-tag comp-tag-${entryType(c)}`}>
                     {c.character && <span>{c.character}</span>}
-                    {entryDisplayName(c)}
+                    {c.primitiveKeywords?.length > 0 ? <>💠 {c.primitiveKeywords[0]}</> : entryDisplayName(c)}
                   </span>
                 ))}
               </div>
