@@ -109,10 +109,11 @@ export default function GraphView({ entries, onEdit }) {
   // Pan / zoom
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
-  const panRef  = useRef({ x: 0, y: 0 })
-  const zoomRef = useRef(1)
-  useEffect(() => { panRef.current  = pan  }, [pan])
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  const panRef       = useRef({ x: 0, y: 0 })
+  const zoomRef      = useRef(1)
+  const zoomTargetRef = useRef(1)   // desired zoom; lerp animates toward it
+  const zoomRafRef    = useRef(null)
+  useEffect(() => { panRef.current = pan }, [pan])
 
   const svgRef    = useRef(null)
   const dragRef   = useRef(null)
@@ -202,10 +203,17 @@ export default function GraphView({ entries, onEdit }) {
       x: W / 2 - ((minX + maxX) / 2) * newZoom,
       y: H / 2 - ((minY + maxY) / 2) * newZoom,
     })
+    zoomTargetRef.current = newZoom
     setZoom(newZoom)
+    zoomRef.current = newZoom
   }
 
-  function resetView() { setPan({ x: 0, y: 0 }); setZoom(1) }
+  function resetView() {
+    setPan({ x: 0, y: 0 })
+    zoomTargetRef.current = 1
+    setZoom(1)
+    zoomRef.current = 1
+  }
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -264,10 +272,38 @@ export default function GraphView({ entries, onEdit }) {
     bgDragRef.current = null
   }
 
+  function animateZoom() {
+    setZoom(current => {
+      const target = zoomTargetRef.current
+      const diff   = target - current
+      if (Math.abs(diff) < 0.0008) {
+        zoomRef.current    = target
+        zoomRafRef.current = null
+        return target
+      }
+      const next = current + diff * 0.18
+      zoomRef.current    = next
+      zoomRafRef.current = requestAnimationFrame(animateZoom)
+      return next
+    })
+  }
+
   function onWheel(e) {
     e.preventDefault()
-    const factor = e.deltaY > 0 ? 0.88 : 1 / 0.88
-    setZoom(z => Math.max(0.15, Math.min(6, z * factor)))
+    let delta = e.deltaY
+    // Normalise deltaMode (0=pixels, 1=lines, 2=pages)
+    if (e.deltaMode === 1) delta *= 20
+    else if (e.deltaMode === 2) delta *= 300
+    // Cap to prevent runaway trackpad momentum bursts
+    const cap = e.ctrlKey ? 15 : 120
+    delta = Math.sign(delta) * Math.min(Math.abs(delta), cap)
+    // Exponential: ctrlKey = macOS pinch-to-zoom (high precision)
+    const sensitivity = e.ctrlKey ? 0.015 : 0.001
+    const factor = Math.exp(-delta * sensitivity)
+    zoomTargetRef.current = Math.max(0.15, Math.min(6, zoomTargetRef.current * factor))
+    if (!zoomRafRef.current) {
+      zoomRafRef.current = requestAnimationFrame(animateZoom)
+    }
   }
 
   // ── Derived render values ────────────────────────────────────────────────────
@@ -426,9 +462,9 @@ export default function GraphView({ entries, onEdit }) {
         <div className="ctrl-divider" />
 
         {/* Zoom */}
-        <button className="ctrl-btn" onClick={() => setZoom(z => Math.max(0.15, z * 0.8))} title="Zoom out">−</button>
+        <button className="ctrl-btn" onClick={() => { zoomTargetRef.current = Math.max(0.15, zoomTargetRef.current * 0.8); if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom) }} title="Zoom out">−</button>
         <button className="ctrl-btn" onClick={fitView} title="Fit all nodes">⊡</button>
-        <button className="ctrl-btn" onClick={() => setZoom(z => Math.min(6, z * 1.25))} title="Zoom in">+</button>
+        <button className="ctrl-btn" onClick={() => { zoomTargetRef.current = Math.min(6, zoomTargetRef.current * 1.25); if (!zoomRafRef.current) zoomRafRef.current = requestAnimationFrame(animateZoom) }} title="Zoom in">+</button>
 
         <div className="ctrl-divider" />
 
