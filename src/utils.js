@@ -25,7 +25,11 @@ export function storyToHtml(text) {
     .replace(/>/g, '&gt;')
   return escaped.replace(
     /\[\[([^\]]*)\]\]/g,
-    (_, name) => `<span class="story-mention-chip">[[${name}]]</span>`
+    (_, inner) => {
+      // [[name|alias]] → display alias; [[name]] → display name
+      const display = inner.includes('|') ? inner.split('|', 2)[1] : inner
+      return `<span class="story-mention-chip">[[${display}]]</span>`
+    }
   )
 }
 

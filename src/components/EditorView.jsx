@@ -92,17 +92,38 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     )
   }
 
+  // Each result is { entry, matchKw } — one per matching keyword so all
+  // primitive keywords are independently selectable. Empty query shows the
+  // first keyword of up to 8 entries; non-empty expands to per-keyword rows.
   const mentionResults = useMemo(() => {
     if (mentionSearch === null) return []
     const q = mentionSearch.toLowerCase()
-    return candidates
-      .filter(e =>
-        !q ||
-        e.keyword?.toLowerCase().includes(q) ||
-        e.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q)) ||
-        e.character?.includes(q)
-      )
-      .slice(0, 8)
+
+    if (!q) {
+      return candidates.slice(0, 8).map(e => ({
+        entry: e,
+        matchKw: e.primitiveKeywords?.[0] || e.keyword || e.character || '',
+      }))
+    }
+
+    const results = []
+    for (const e of candidates) {
+      for (const pk of (e.primitiveKeywords || [])) {
+        if (pk.toLowerCase().includes(q)) {
+          results.push({ entry: e, matchKw: pk })
+          if (results.length >= 8) return results
+        }
+      }
+      if (e.keyword?.toLowerCase().includes(q)) {
+        results.push({ entry: e, matchKw: e.keyword })
+        if (results.length >= 8) return results
+      }
+      if (!e.primitiveKeywords?.length && !e.keyword && e.character?.includes(q)) {
+        results.push({ entry: e, matchKw: e.character })
+        if (results.length >= 8) return results
+      }
+    }
+    return results
   }, [candidates, mentionSearch])
 
   function handleStoryChange(e) {
@@ -114,20 +135,32 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     const lastOpen  = before.lastIndexOf('[[')
     const lastClose = before.lastIndexOf(']]')
     if (lastOpen > lastClose) {
-      setMentionSearch(before.slice(lastOpen + 2))
-      setMentionStart(lastOpen)
+      const fragment = before.slice(lastOpen + 2)
+      // Stop autocomplete once | is typed — user is writing a display alias
+      if (fragment.includes('|')) {
+        setMentionSearch(null)
+        setMentionStart(-1)
+      } else {
+        setMentionSearch(fragment)
+        setMentionStart(lastOpen)
+      }
     } else {
       setMentionSearch(null)
       setMentionStart(-1)
     }
   }
 
-  function insertMention(entry) {
-    const name = entry.primitiveKeywords?.length > 0
-      ? entry.primitiveKeywords[0]
-      : entry.keyword || entry.character || ''
+  // entry   — the library entry being referenced
+  // matchKw — the specific primitive keyword the user picked
+  // Inserts [[matchKw]] if matchKw is the canonical name, or
+  // [[canonical|matchKw]] if it is an alias of a different primary keyword.
+  function insertMention({ entry, matchKw }) {
+    const canonical = entry.primitiveKeywords?.[0] || entry.keyword || entry.character || ''
+    const ref = (matchKw === canonical || !matchKw)
+      ? `[[${matchKw || canonical}]]`
+      : `[[${canonical}|${matchKw}]]`
     const draftLen = mentionSearch?.length ?? 0
-    const newStory = story.slice(0, mentionStart) + `[[${name}]]` + story.slice(mentionStart + 2 + draftLen)
+    const newStory = story.slice(0, mentionStart) + ref + story.slice(mentionStart + 2 + draftLen)
     setStory(newStory)
     setComponentIds(prev => prev.includes(entry.id) ? prev : [...prev, entry.id])
     setMentionSearch(null)
@@ -135,8 +168,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     requestAnimationFrame(() => {
       const ta = storyTextareaRef.current
       if (!ta) return
-      const pos = mentionStart + name.length + 4
-      ta.setSelectionRange(pos, pos)
+      ta.setSelectionRange(mentionStart + ref.length, mentionStart + ref.length)
       ta.focus()
     })
   }
@@ -337,19 +369,26 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
             />
             {mentionSearch !== null && mentionResults.length > 0 && (
               <div className="story-mention-dropdown">
-                {mentionResults.map((e, i) => (
-                  <button
-                    key={e.id}
-                    type="button"
-                    className={`story-mention-opt ${i === mentionIndex ? 'active' : ''}`}
-                    onMouseDown={ev => { ev.preventDefault(); insertMention(e) }}
-                  >
-                    {e.character && <span className="comp-chip-glyph">{e.character}</span>}
-                    <span>{e.primitiveKeywords?.length > 0
-                      ? `💠 ${e.primitiveKeywords[0]}`
-                      : e.keyword || e.character}</span>
-                  </button>
-                ))}
+                {mentionResults.map(({ entry: e, matchKw }, i) => {
+                  const canonical = e.primitiveKeywords?.[0] || e.keyword || e.character || ''
+                  const isAlias = matchKw !== canonical
+                  return (
+                    <button
+                      key={`${e.id}:${matchKw}`}
+                      type="button"
+                      className={`story-mention-opt ${i === mentionIndex ? 'active' : ''}`}
+                      onMouseDown={ev => { ev.preventDefault(); insertMention({ entry: e, matchKw }) }}
+                    >
+                      {e.character && <span className="comp-chip-glyph">{e.character}</span>}
+                      <span>
+                        {e.primitiveKeywords?.length > 0 ? `💠 ${matchKw}` : matchKw}
+                        {isAlias && (
+                          <span className="mention-opt-alias"> → {canonical}</span>
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
