@@ -40,7 +40,10 @@ export default function App() {
 
   // ── Database ─────────────────────────────────────────────────────────────────
 
-  const loadDatabase = useCallback((file) => {
+  const loadDatabase = useCallback((file, { confirmReplace = false } = {}) => {
+    if (confirmReplace && entries.length > 0) {
+      if (!window.confirm(`Replace the current library (${entries.length} entries) with the contents of "${file.name}"?`)) return
+    }
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
@@ -51,7 +54,7 @@ export default function App() {
       }
     }
     reader.readAsText(file)
-  }, [])
+  }, [entries.length])
 
   const createNewLibrary = useCallback(() => {
     setEntries([])
@@ -119,6 +122,7 @@ export default function App() {
           hasLibrary={currentView !== 'welcome'}
           onNavigate={setCurrentView}
           onDownload={downloadDatabase}
+          onLoad={(file) => loadDatabase(file, { confirmReplace: true })}
           entryCount={entries.length}
         />
       )}

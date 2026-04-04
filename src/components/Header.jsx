@@ -1,4 +1,16 @@
-export default function Header({ currentView, hasLibrary, onNavigate, onDownload, entryCount }) {
+import { useRef } from 'react'
+
+export default function Header({ currentView, hasLibrary, onNavigate, onDownload, onLoad, entryCount }) {
+  const fileRef = useRef(null)
+
+  function handleFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    // Reset so the same file can be re-imported if needed
+    e.target.value = ''
+    onLoad(file)
+  }
+
   return (
     <header className="header">
       <div className="header-brand">
@@ -28,6 +40,16 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
           >
             Review
           </button>
+          <button className="nav-btn load-btn" onClick={() => fileRef.current.click()}>
+            ↑ Load
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={handleFile}
+          />
           <button className="nav-btn save-btn" onClick={onDownload}>
             ↓ Save
           </button>
