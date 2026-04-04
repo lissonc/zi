@@ -141,7 +141,7 @@ function tick(sim) {
 
 // ── Canvas draw ───────────────────────────────────────────────────────────────
 
-function drawFrame(canvas, phys, pan, zoom, radiusMap, selectedId, hoverId, connectedIds, showCircles, entryLookup) {
+function drawFrame(canvas, phys, pan, zoom, radiusMap, selectedId, hoverId, connectedIds, showCircles, entryLookup, showKeywords) {
   const ctx = canvas.getContext('2d')
   const dpr = window.devicePixelRatio || 1
   ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -219,7 +219,10 @@ function drawFrame(canvas, phys, pan, zoom, radiusMap, selectedId, hoverId, conn
       ctx.fillStyle = '#f1f5f9'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      if (entry.character) {
+      if (showKeywords) {
+        ctx.font = `bold ${Math.max(Math.min(r * 0.6, 10), 6)}px sans-serif`
+        ctx.fillText(entryDisplayName(entry).slice(0, 4), n.x, n.y)
+      } else if (entry.character) {
         ctx.font = `${r * 1.05}px serif`
         ctx.fillText(entry.character, n.x, n.y + 0.5)
       } else {
@@ -238,7 +241,10 @@ function drawFrame(canvas, phys, pan, zoom, radiusMap, selectedId, hoverId, conn
       ctx.fillStyle = isSelected ? '#fff' : isHovered ? '#e2e8f0' : TYPE_STROKE[type]
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      if (entry.character) {
+      if (showKeywords) {
+        ctx.font = `bold ${Math.min(r * 1.1, 14)}px sans-serif`
+        ctx.fillText(entryDisplayName(entry).slice(0, 8), n.x, n.y)
+      } else if (entry.character) {
         ctx.font = `${r * 1.6}px serif`
         ctx.fillText(entry.character, n.x, n.y + 0.5)
       } else {
@@ -250,15 +256,28 @@ function drawFrame(canvas, phys, pan, zoom, radiusMap, selectedId, hoverId, conn
     // Hover/select label
     if (isHovered || isSelected) {
       ctx.globalAlpha = 1
-      const label = entryDisplayName(entry)
-      ctx.font = `11px sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'top'
-      const tw = ctx.measureText(label).width
-      ctx.fillStyle = 'rgba(15,23,42,0.85)'
-      ctx.fillRect(n.x - tw / 2 - 3, n.y + r + 5, tw + 6, 16)
-      ctx.fillStyle = '#e2e8f0'
-      ctx.fillText(label, n.x, n.y + r + 7)
+      if (showKeywords && entry.character) {
+        // Show character glyph as tooltip
+        const glyphSize = Math.min(r * 2.2, 30)
+        ctx.font = `${glyphSize}px serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        const tw = ctx.measureText(entry.character).width
+        ctx.fillStyle = 'rgba(15,23,42,0.88)'
+        ctx.fillRect(n.x - tw / 2 - 5, n.y + r + 5, tw + 10, glyphSize + 6)
+        ctx.fillStyle = '#f1f5f9'
+        ctx.fillText(entry.character, n.x, n.y + r + 7)
+      } else if (!showKeywords) {
+        const label = entryDisplayName(entry)
+        ctx.font = `11px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        const tw = ctx.measureText(label).width
+        ctx.fillStyle = 'rgba(15,23,42,0.85)'
+        ctx.fillRect(n.x - tw / 2 - 3, n.y + r + 5, tw + 6, 16)
+        ctx.fillStyle = '#e2e8f0'
+        ctx.fillText(label, n.x, n.y + r + 7)
+      }
     }
   }
 
@@ -282,6 +301,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
   // View options
   const [showCircles, setShowCircles] = useState(true)
+  const [showKeywords, setShowKeywords] = useState(false)
   const [nodeScale,   setNodeScale]   = useState(1.0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showAll, setShowAll] = useState(false)
@@ -347,6 +367,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   // Refs that drawFrame needs, updated each render
   const panZoomRef = useRef({ pan, zoom })
   const showCirclesRef = useRef(showCircles)
+  const showKeywordsRef = useRef(showKeywords)
   const radiusMapRef = useRef(radiusMap)
   const entryLookupRef = useRef(entryLookup)
   const selectedIdRef = useRef(selectedId)
@@ -355,6 +376,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
   useEffect(() => { panZoomRef.current = { pan, zoom } }, [pan, zoom])
   useEffect(() => { showCirclesRef.current = showCircles }, [showCircles])
+  useEffect(() => { showKeywordsRef.current = showKeywords }, [showKeywords])
   useEffect(() => { radiusMapRef.current = radiusMap }, [radiusMap])
   useEffect(() => { entryLookupRef.current = entryLookup }, [entryLookup])
   useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
@@ -378,7 +400,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     const { pan: p, zoom: z } = panZoomRef.current
     drawFrame(canvas, physRef.current, p, z, radiusMapRef.current,
       selectedIdRef.current, hoverIdRef.current, connectedIdsRef.current,
-      showCirclesRef.current, entryLookupRef.current)
+      showCirclesRef.current, entryLookupRef.current, showKeywordsRef.current)
   }
 
   const startSim = useCallback((resetAlpha = true) => {
@@ -431,7 +453,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   }, [visibleEntries, startSim])
 
   // Redraw whenever visual state changes (no physics tick needed)
-  useEffect(() => { redraw() }, [pan, zoom, showCircles, nodeScale, selectedId, hoverId, connectedIds, radiusMap]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { redraw() }, [pan, zoom, showCircles, showKeywords, nodeScale, selectedId, hoverId, connectedIds, radiusMap]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Non-passive wheel listener — must be added via addEventListener so we can
   // call e.preventDefault() (React's onWheel is passive in Chrome, which ignores it)
@@ -719,6 +741,15 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
           {showCircles ? '◉' : '◯'} Circles
         </button>
 
+        {/* Keywords toggle */}
+        <button
+          className={`ctrl-btn ctrl-toggle ${showKeywords ? 'ctrl-toggle-on' : ''}`}
+          onClick={() => setShowKeywords(v => !v)}
+          title={showKeywords ? 'Show characters in nodes' : 'Show keywords in nodes'}
+        >
+          Aa Keywords
+        </button>
+
         <div className="ctrl-divider" />
 
         {/* Fullscreen */}
@@ -733,7 +764,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
       {/* Legend */}
       <div className="graph-legend">
-        {[['primitive','💠 Primitive'],['dual','💠 Dual'],['character','Character']].map(([t, label]) => (
+        {[['primitive','💠 Primitive'],['dual','Dual'],['character','Character']].map(([t, label]) => (
           <span key={t} className="legend-item">
             <span className={`legend-dot legend-dot-${t}`} />
             {label}
