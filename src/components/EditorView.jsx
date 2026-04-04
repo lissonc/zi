@@ -95,6 +95,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel }
     const draftLen = mentionSearch?.length ?? 0
     const newStory = story.slice(0, mentionStart) + `[[${name}]]` + story.slice(mentionStart + 2 + draftLen)
     setStory(newStory)
+    setComponentIds(prev => prev.includes(entry.id) ? prev : [...prev, entry.id])
     setMentionSearch(null)
     setMentionStart(-1)
     requestAnimationFrame(() => {

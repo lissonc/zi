@@ -654,13 +654,16 @@ html, body, #root {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  overflow: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable; /* reserve scrollbar space to match textarea */
+  scrollbar-width: none;    /* hide mirror's own scrollbar (Firefox) */
   color: var(--text);
   pointer-events: none;
   z-index: 0;
   border: 1px solid transparent;
   border-radius: var(--radius);
 }
+.story-mirror::-webkit-scrollbar { display: none; }
 
 .story-mention-chip {
   color: var(--character-light);
@@ -675,6 +678,7 @@ html, body, #root {
   background: transparent !important;
   color: transparent !important;
   caret-color: var(--text);
+  scrollbar-gutter: stable; /* keep text width identical to mirror */
 }
 .story-textarea::placeholder { color: var(--text-dim); opacity: 1; }
 
