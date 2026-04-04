@@ -11,7 +11,8 @@ function shuffle(arr) {
 }
 
 function ConfigScreen({ reviewable, onStart, onExit }) {
-  const [mode, setMode] = useState('random20')
+  const [mode, setMode] = useState('random')
+  const [randomCount, setRandomCount] = useState(20)
   const [filterBook, setFilterBook] = useState('all')
   const [lessonStart, setLessonStart] = useState('')
   const [lessonEnd, setLessonEnd] = useState('')
@@ -30,9 +31,11 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
     })
   }, [reviewable, filterBook, lessonStart, lessonEnd, pool])
 
+  const effectiveCount = Math.max(1, Math.min(randomCount || 1, eligible.length))
+
   function handleStart() {
     let queue = shuffle(eligible)
-    if (mode === 'random20') queue = queue.slice(0, 20)
+    if (mode === 'random') queue = queue.slice(0, effectiveCount)
     onStart(queue, mode)
   }
 
@@ -46,8 +49,18 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
           <h3 className="config-label">Mode</h3>
           <div className="radio-group">
             <label className="radio-label">
-              <input type="radio" value="random20" checked={mode === 'random20'} onChange={() => setMode('random20')} />
-              Random 20
+              <input type="radio" value="random" checked={mode === 'random'} onChange={() => setMode('random')} />
+              Random
+              {mode === 'random' && (
+                <input
+                  className="form-input count-input"
+                  type="number"
+                  min="1"
+                  max={eligible.length || 999}
+                  value={randomCount}
+                  onChange={e => setRandomCount(Math.max(1, parseInt(e.target.value) || 1))}
+                />
+              )}
             </label>
             <label className="radio-label">
               <input type="radio" value="infinite" checked={mode === 'infinite'} onChange={() => setMode('infinite')} />
@@ -91,8 +104,8 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
 
         <div className="config-eligible">
           <span className="eligible-count">{eligible.length}</span> characters in pool
-          {mode === 'random20' && eligible.length > 20 && (
-            <span className="eligible-note"> (20 will be selected randomly)</span>
+          {mode === 'random' && eligible.length > effectiveCount && (
+            <span className="eligible-note"> ({effectiveCount} will be selected randomly)</span>
           )}
         </div>
 
@@ -208,7 +221,7 @@ export default function ReviewView({ entries, entryMap, onToggleMastered, onExit
 
   const [phase, setPhase] = useState('config')
   const [queue, setQueue] = useState([])
-  const [mode, setMode] = useState('random20')
+  const [mode, setMode] = useState('random')
   const [cardIndex, setCardIndex] = useState(0)
   const [results, setResults] = useState([])
 

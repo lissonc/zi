@@ -805,6 +805,7 @@ html, body, #root {
 
 .lesson-range { display: flex; align-items: center; gap: 8px; }
 .range-input { width: 120px; }
+.count-input { width: 64px; margin-left: 8px; padding: 2px 6px; font-size: 14px; }
 .range-dash { color: var(--text-dim); }
 
 .eligible-count { font-size: 22px; font-weight: 700; color: var(--character-light); }
