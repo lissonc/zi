@@ -22,7 +22,7 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
       >
         <span className="header-logo">字</span>
         <span className="header-title">Radix</span>
-        <span className="mode-badge">Mode: Traditional Hanzi</span>
+        <span className="mode-badge">Traditional Hanzi</span>
       </div>
 
       {hasLibrary && (
