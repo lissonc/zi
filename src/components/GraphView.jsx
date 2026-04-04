@@ -272,7 +272,8 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   const physRef  = useRef({ nodes: [], edges: [], alpha: ALPHA_INIT })
   const frameRef = useRef(null)
   const canvasRef = useRef(null)
-  const nodeMapRef = useRef({})  // id → phys node, O(1) lookup in drag handlers
+  const nodeMapRef   = useRef({})   // id → phys node, O(1) lookup in drag handlers
+  const hasFittedRef = useRef(false) // auto-fit once on first load
   const wrapRef  = useRef(null)
 
   const [selectedId, setSelectedId] = useState(null)
@@ -420,6 +421,8 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
     physRef.current = { nodes, edges, alpha: ALPHA_INIT }
     startSim(false)
+    // Centre the view on the node cluster on first load
+    if (!hasFittedRef.current) { hasFittedRef.current = true; requestAnimationFrame(fitView) }
     return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }
   }, [visibleEntries, startSim])
 
@@ -443,8 +446,8 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
       // Capture the world point under the cursor so we can zoom towards it
       const rect   = canvas.getBoundingClientRect()
-      const cx     = (e.clientX - rect.left) * (W / rect.width)
-      const cy     = (e.clientY - rect.top)  * (H / rect.height)
+      const cx     = e.clientX - rect.left
+      const cy     = e.clientY - rect.top
       const { pan: p } = panZoomRef.current
       zoomOriginRef.current  = { x: cx, y: cy }
       worldOriginRef.current = { x: (cx - p.x) / zoomRef.current, y: (cy - p.y) / zoomRef.current }
@@ -534,6 +537,9 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
   function fitView() {
     const nodes = physRef.current.nodes
     if (!nodes.length) return
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const cw = rect?.width  || W
+    const ch = rect?.height || H
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const n of nodes) {
       const r = radiusMapRef.current[n.id] ?? 10
@@ -541,10 +547,10 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
       maxX = Math.max(maxX, n.x + r); maxY = Math.max(maxY, n.y + r)
     }
     const pad = 48
-    const newZoom = Math.min(W / (maxX - minX + pad * 2), H / (maxY - minY + pad * 2), 4)
+    const newZoom = Math.min(cw / (maxX - minX + pad * 2), ch / (maxY - minY + pad * 2), 4)
     const newPan = {
-      x: W / 2 - ((minX + maxX) / 2) * newZoom,
-      y: H / 2 - ((minY + maxY) / 2) * newZoom,
+      x: cw / 2 - ((minX + maxX) / 2) * newZoom,
+      y: ch / 2 - ((minY + maxY) / 2) * newZoom,
     }
     setPan(newPan)
     zoomTargetRef.current = newZoom
@@ -568,10 +574,9 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
   function getCanvasXY(e) {
     const rect = canvasRef.current.getBoundingClientRect()
-    const scaleX = W / rect.width, scaleY = H / rect.height
     return [
-      (e.clientX - rect.left) * scaleX,
-      (e.clientY - rect.top)  * scaleY,
+      e.clientX - rect.left,
+      e.clientY - rect.top,
     ]
   }
 
@@ -608,10 +613,8 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
 
   function onMouseMove(e) {
     if (nodeDragRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect()
-      const scaleX = W / rect.width, scaleY = H / rect.height
-      const dx = (e.clientX - nodeDragRef.current.prevCX) * scaleX / zoomRef.current
-      const dy = (e.clientY - nodeDragRef.current.prevCY) * scaleY / zoomRef.current
+      const dx = (e.clientX - nodeDragRef.current.prevCX) / zoomRef.current
+      const dy = (e.clientY - nodeDragRef.current.prevCY) / zoomRef.current
       const phys = nodeMapRef.current[nodeDragRef.current.nodeId]
       if (phys) { phys.x += dx; phys.y += dy; phys.vx = 0; phys.vy = 0 }
       nodeDragRef.current.prevCX = e.clientX
@@ -621,11 +624,9 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     }
     if (canvasDragRef.current) {
       const { startCX, startCY, startPan } = canvasDragRef.current
-      const rect = canvasRef.current.getBoundingClientRect()
-      const scaleX = W / rect.width, scaleY = H / rect.height
       const newPan = {
-        x: startPan.x + (e.clientX - startCX) * scaleX,
-        y: startPan.y + (e.clientY - startCY) * scaleY,
+        x: startPan.x + (e.clientX - startCX),
+        y: startPan.y + (e.clientY - startCY),
       }
       panRef.current = newPan
       panZoomRef.current = { ...panZoomRef.current, pan: newPan }
