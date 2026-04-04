@@ -27,13 +27,22 @@ export default function EditorView({ item, entries, onSave, onCancel }) {
 
   const filteredCandidates = useMemo(() => {
     const q = compSearch.toLowerCase()
-    if (!q) return candidates
-    return candidates.filter(e =>
-      e.character?.includes(q) ||
-      e.keyword?.toLowerCase().includes(q) ||
-      e.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q))
-    )
-  }, [candidates, compSearch])
+    const matches = q
+      ? candidates.filter(e =>
+          e.character?.includes(q) ||
+          e.keyword?.toLowerCase().includes(q) ||
+          e.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q))
+        )
+      : candidates
+    // Selected entries float to the top
+    return [...matches].sort((a, b) => {
+      const aOn = componentIds.includes(a.id)
+      const bOn = componentIds.includes(b.id)
+      if (aOn && !bOn) return -1
+      if (!aOn && bOn) return 1
+      return 0
+    })
+  }, [candidates, compSearch, componentIds])
 
   function toggleComponent(id) {
     setComponentIds(prev =>

@@ -879,6 +879,11 @@ html, body, #root {
   font-family: -apple-system, serif;
   pointer-events: none;
 }
+.graph-glyph-raw {
+  font-family: -apple-system, serif;
+  pointer-events: none;
+  transition: fill 0.1s;
+}
 .graph-glyph-abbr {
   fill: rgba(255,255,255,0.75);
   font-family: -apple-system, sans-serif;
@@ -890,6 +895,62 @@ html, body, #root {
   font-size: 11px;
   font-family: -apple-system, sans-serif;
   pointer-events: none;
+}
+
+/* ── Obsidian-style control bar ──────────────────────────────────────────────── */
+.graph-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  backdrop-filter: blur(8px);
+}
+
+.ctrl-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.ctrl-btn:hover { background: var(--surface-raised); color: var(--text); border-color: var(--border); }
+.ctrl-toggle { gap: 4px; }
+.ctrl-toggle-on { color: var(--character-light); }
+.ctrl-toggle-on:hover { color: var(--character-light); }
+
+.ctrl-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ctrl-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.ctrl-slider {
+  width: 72px;
+  accent-color: var(--character-light);
+  cursor: pointer;
 }
 
 /* Legend */
@@ -920,8 +981,10 @@ html, body, #root {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 16px;
-  min-width: 220px;
-  max-width: 280px;
+  min-width: 230px;
+  max-width: 290px;
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
   backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
@@ -941,25 +1004,48 @@ html, body, #root {
   border-radius: 4px;
 }
 .graph-info-close:hover { background: var(--surface-raised); color: var(--text); }
-.graph-info-main { display: flex; align-items: center; gap: 12px; padding-right: 24px; }
-.graph-info-glyph { font-size: 36px; line-height: 1; }
+.graph-info-main { display: flex; align-items: flex-start; gap: 12px; padding-right: 24px; }
+.graph-info-glyph { font-size: 36px; line-height: 1; flex-shrink: 0; }
 .graph-info-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
-.graph-info-sub { font-size: 12px; color: var(--primitive-light); }
+.graph-info-sub  { font-size: 12px; color: var(--primitive-light); }
+.graph-info-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.graph-info-story {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius);
+  border-left: 2px solid var(--border-light);
+  font-style: italic;
+}
 .graph-info-row {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 5px;
   font-size: 13px;
 }
+.graph-info-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .graph-info-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-dim);
-  margin-right: 2px;
 }
+
+/* Fullscreen */
+.graph-wrap-fs,
+.graph-wrap:fullscreen {
+  position: fixed !important;
+  inset: 0;
+  z-index: 9999;
+  border-radius: 0 !important;
+  border: none !important;
+}
+.graph-wrap:fullscreen .graph-svg,
+.graph-wrap-fs .graph-svg { height: 100vh; }
+
 .btn-sm { padding: 5px 12px; font-size: 13px; }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
