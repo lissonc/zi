@@ -262,7 +262,12 @@ html, body, #root {
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.15s;
 }
+.stat:hover { opacity: 0.85; }
+.stat.active { box-shadow: 0 0 0 2px currentColor; }
 .primitive-stat { background: rgba(124,58,237,0.15); color: var(--primitive-light); }
 .dual-stat      { background: rgba(13,148,136,0.15);  color: var(--dual-light); }
 .character-stat { background: rgba(29,78,216,0.15);   color: var(--character-light); }
@@ -295,26 +300,6 @@ html, body, #root {
 .search-input:focus { outline: none; border-color: var(--border-light); }
 .search-input::placeholder { color: var(--text-dim); }
 
-.filter-tabs {
-  display: flex;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.filter-tab {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  padding: 7px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.15s;
-}
-.filter-tab:hover { background: var(--surface-raised); color: var(--text); }
-.filter-tab.active { background: var(--surface-raised); color: var(--text); }
 
 .filter-select, .filter-input {
   background: var(--surface);
