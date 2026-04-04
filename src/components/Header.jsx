@@ -1,4 +1,4 @@
-export default function Header({ currentView, hasLibrary, onNavigate, onDownload, primitiveCount, characterCount }) {
+export default function Header({ currentView, hasLibrary, onNavigate, onDownload, entryCount }) {
   return (
     <header className="header">
       <div className="header-brand">
@@ -14,7 +14,7 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
             onClick={() => onNavigate('library')}
           >
             Library
-            <span className="nav-count">{primitiveCount + characterCount}</span>
+            <span className="nav-count">{entryCount}</span>
           </button>
           <button
             className={`nav-btn ${currentView === 'editor' ? 'active' : ''}`}

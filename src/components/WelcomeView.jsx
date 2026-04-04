@@ -36,12 +36,16 @@ export default function WelcomeView({ onLoad, onCreate }) {
 
         <div className="welcome-info">
           <div className="welcome-info-item">
-            <span className="info-dot primitive-dot" />
-            <span>Primitives — building blocks used in stories</span>
+            <span className="info-dot" style={{background: 'var(--primitive)'}} />
+            <span><strong>Primitive</strong> — building block only; has primitive keywords, no standalone meaning</span>
           </div>
           <div className="welcome-info-item">
-            <span className="info-dot character-dot" />
-            <span>Characters — assembled from primitives with a mnemonic</span>
+            <span className="info-dot" style={{background: 'var(--dual)'}} />
+            <span><strong>Dual</strong> — both a standalone character and a building block</span>
+          </div>
+          <div className="welcome-info-item">
+            <span className="info-dot" style={{background: 'var(--character-light)'}} />
+            <span><strong>Character</strong> — standalone character; assembled from components with a mnemonic</span>
           </div>
         </div>
       </div>

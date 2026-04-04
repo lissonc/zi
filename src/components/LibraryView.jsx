@@ -1,82 +1,147 @@
 import { useState, useMemo } from 'react'
+import { entryType, entryDisplayName } from '../utils.js'
 
-export default function LibraryView({
-  primitives,
-  characters,
-  onEditPrimitive,
-  onEditCharacter,
-  onDeletePrimitive,
-  onDeleteCharacter,
-  onToggleMastered,
-  onNewPrimitive,
-  onNewCharacter,
-  onReview,
-}) {
-  const [tab, setTab] = useState('all') // 'all' | 'primitives' | 'characters'
+function TypeBadge({ type }) {
+  const labels = { primitive: 'Primitive', character: 'Character', dual: 'Dual' }
+  return <span className={`type-badge type-badge-${type}`}>{labels[type]}</span>
+}
+
+function EntryCard({ entry, entries, onEdit, onDelete, onToggleMastered }) {
+  const type = entryType(entry)
+  const components = entry.componentIds
+    .map(id => entries.find(e => e.id === id))
+    .filter(Boolean)
+
+  function confirmDelete() {
+    const name = entryDisplayName(entry)
+    if (window.confirm(`Delete "${name}"?`)) onDelete(entry.id)
+  }
+
+  return (
+    <div className={`item-card entry-card-${type} ${type !== 'primitive' && entry.isMastered ? 'mastered' : ''}`}>
+      <div className="item-main">
+        {entry.character && (
+          <span className="item-character">{entry.character}</span>
+        )}
+        <div className="item-info">
+          <div className="item-headline">
+            <span className="item-keyword">{entryDisplayName(entry)}</span>
+            <TypeBadge type={type} />
+          </div>
+
+          {entry.primitiveKeywords?.length > 0 && (
+            <span className="item-prim-keywords">
+              As primitive: {entry.primitiveKeywords.join(', ')}
+            </span>
+          )}
+
+          {type !== 'primitive' && (entry.bookNumber || entry.heisigNumber) && (
+            <span className="item-meta">
+              {entry.bookNumber && `Book ${entry.bookNumber}`}
+              {entry.lessonNumber && ` · Lesson ${entry.lessonNumber}`}
+              {entry.heisigNumber && ` · #${entry.heisigNumber}`}
+            </span>
+          )}
+
+          {entry.story && (
+            <span className="item-story">{entry.story}</span>
+          )}
+
+          {components.length > 0 && (
+            <div className="item-components">
+              {components.map(c => (
+                <span
+                  key={c.id}
+                  className={`comp-tag comp-tag-${entryType(c)}`}
+                  title={c.primitiveKeywords?.join(', ') || c.keyword}
+                >
+                  {c.character && <span>{c.character}</span>}
+                  {entryDisplayName(c)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="item-actions">
+        {type !== 'primitive' && (
+          <button
+            className={`icon-btn ${entry.isMastered ? 'mastered-btn' : ''}`}
+            onClick={() => onToggleMastered(entry.id)}
+            title={entry.isMastered ? 'Mark unmastered' : 'Mark mastered'}
+          >
+            {entry.isMastered ? '★' : '☆'}
+          </button>
+        )}
+        <button className="icon-btn" onClick={() => onEdit(entry)} title="Edit">✏️</button>
+        <button className="icon-btn danger" onClick={confirmDelete} title="Delete">🗑</button>
+      </div>
+    </div>
+  )
+}
+
+export default function LibraryView({ entries, onEdit, onDelete, onToggleMastered, onNew, onReview }) {
   const [search, setSearch] = useState('')
-  const [filterBook, setFilterBook] = useState('all') // 'all' | '1' | '2'
+  const [filterType, setFilterType] = useState('all') // 'all'|'primitive'|'character'|'dual'
+  const [filterBook, setFilterBook] = useState('all')
   const [filterLesson, setFilterLesson] = useState('')
-  const [filterMastered, setFilterMastered] = useState('all') // 'all' | 'mastered' | 'unmastered'
+  const [filterMastered, setFilterMastered] = useState('all')
 
-  const filteredPrimitives = useMemo(() => {
-    if (tab === 'characters') return []
-    return primitives.filter(p => {
-      const q = search.toLowerCase()
-      return (
-        q === '' ||
-        p.name.toLowerCase().includes(q) ||
-        (p.character && p.character.includes(q)) ||
-        p.meanings.some(m => m.toLowerCase().includes(q))
-      )
-    })
-  }, [primitives, tab, search])
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return entries.filter(entry => {
+      const type = entryType(entry)
 
-  const filteredCharacters = useMemo(() => {
-    if (tab === 'primitives') return []
-    return characters.filter(c => {
-      const q = search.toLowerCase()
       const matchSearch =
         q === '' ||
-        c.keyword.toLowerCase().includes(q) ||
-        c.character.includes(q) ||
-        (c.story && c.story.toLowerCase().includes(q))
+        entry.character?.includes(q) ||
+        entry.keyword?.toLowerCase().includes(q) ||
+        entry.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q)) ||
+        entry.story?.toLowerCase().includes(q)
 
-      const matchBook = filterBook === 'all' || String(c.bookNumber) === filterBook
+      const matchType = filterType === 'all' || type === filterType
+
+      const matchBook =
+        filterBook === 'all' ||
+        !entry.bookNumber ||
+        String(entry.bookNumber) === filterBook
 
       const matchLesson =
-        filterLesson === '' || String(c.lessonNumber) === filterLesson
+        filterLesson === '' || String(entry.lessonNumber) === filterLesson
 
       const matchMastered =
         filterMastered === 'all' ||
-        (filterMastered === 'mastered' && c.isMastered) ||
-        (filterMastered === 'unmastered' && !c.isMastered)
+        (filterMastered === 'mastered' && entry.isMastered) ||
+        (filterMastered === 'unmastered' && !entry.isMastered && type !== 'primitive')
 
-      return matchSearch && matchBook && matchLesson && matchMastered
+      return matchSearch && matchType && matchBook && matchLesson && matchMastered
     })
-  }, [characters, tab, search, filterBook, filterLesson, filterMastered])
+  }, [entries, search, filterType, filterBook, filterLesson, filterMastered])
 
-  const masteredCount = characters.filter(c => c.isMastered).length
+  const counts = useMemo(() => ({
+    primitive: entries.filter(e => entryType(e) === 'primitive').length,
+    character: entries.filter(e => entryType(e) === 'character').length,
+    dual: entries.filter(e => entryType(e) === 'dual').length,
+    mastered: entries.filter(e => e.isMastered).length,
+  }), [entries])
 
-  function confirmDelete(type, id, name) {
-    if (window.confirm(`Delete "${name}"?`)) {
-      type === 'primitive' ? onDeletePrimitive(id) : onDeleteCharacter(id)
-    }
-  }
+  const reviewable = entries.filter(e => e.keyword?.trim())
 
   return (
     <div className="library">
       {/* Toolbar */}
       <div className="library-toolbar">
         <div className="library-stats">
-          <span className="stat primitive-stat">{primitives.length} Primitives</span>
-          <span className="stat character-stat">{characters.length} Characters</span>
-          <span className="stat mastered-stat">{masteredCount} Mastered</span>
+          <span className="stat primitive-stat">{counts.primitive} Primitives</span>
+          <span className="stat dual-stat">{counts.dual} Dual</span>
+          <span className="stat character-stat">{counts.character} Characters</span>
+          <span className="stat mastered-stat">{counts.mastered} Mastered</span>
         </div>
         <div className="library-actions">
-          <button className="btn btn-primitive" onClick={onNewPrimitive}>+ Primitive</button>
-          <button className="btn btn-character" onClick={onNewCharacter}>+ Character</button>
-          {characters.length > 0 && (
-            <button className="btn btn-primary" onClick={onReview}>Review</button>
+          <button className="btn btn-primary" onClick={onNew}>+ Add Entry</button>
+          {reviewable.length > 0 && (
+            <button className="btn btn-outline" onClick={onReview}>Review</button>
           )}
         </div>
       </div>
@@ -86,140 +151,69 @@ export default function LibraryView({
         <input
           className="search-input"
           type="text"
-          placeholder="Search keyword, character, meaning…"
+          placeholder="Search keyword, character, story…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
         <div className="filter-tabs">
-          {['all', 'primitives', 'characters'].map(t => (
+          {[['all', 'All'], ['primitive', 'Primitives'], ['dual', 'Dual'], ['character', 'Characters']].map(([v, label]) => (
             <button
-              key={t}
-              className={`filter-tab ${tab === t ? 'active' : ''}`}
-              onClick={() => setTab(t)}
+              key={v}
+              className={`filter-tab ${filterType === v ? 'active' : ''}`}
+              onClick={() => setFilterType(v)}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {label}
             </button>
           ))}
         </div>
-        {tab !== 'primitives' && (
-          <>
-            <select
-              className="filter-select"
-              value={filterBook}
-              onChange={e => setFilterBook(e.target.value)}
-            >
-              <option value="all">All Books</option>
-              <option value="1">Book 1</option>
-              <option value="2">Book 2</option>
-            </select>
-            <input
-              className="filter-input"
-              type="number"
-              placeholder="Lesson #"
-              value={filterLesson}
-              onChange={e => setFilterLesson(e.target.value)}
-              min="1"
-            />
-            <select
-              className="filter-select"
-              value={filterMastered}
-              onChange={e => setFilterMastered(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="mastered">Mastered</option>
-              <option value="unmastered">Unmastered</option>
-            </select>
-          </>
-        )}
+        <select
+          className="filter-select"
+          value={filterBook}
+          onChange={e => setFilterBook(e.target.value)}
+        >
+          <option value="all">All Books</option>
+          <option value="1">Book 1</option>
+          <option value="2">Book 2</option>
+        </select>
+        <input
+          className="filter-input"
+          type="number"
+          placeholder="Lesson #"
+          value={filterLesson}
+          onChange={e => setFilterLesson(e.target.value)}
+          min="1"
+        />
+        <select
+          className="filter-select"
+          value={filterMastered}
+          onChange={e => setFilterMastered(e.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="mastered">Mastered</option>
+          <option value="unmastered">Unmastered</option>
+        </select>
       </div>
 
-      {/* Empty state */}
-      {filteredPrimitives.length === 0 && filteredCharacters.length === 0 && (
+      {/* List */}
+      {filtered.length === 0 ? (
         <div className="empty-state">
-          <p>
-            {primitives.length === 0 && characters.length === 0
-              ? 'Your library is empty. Start by adding Primitives.'
-              : 'No items match your search.'}
-          </p>
+          {entries.length === 0
+            ? 'Your library is empty. Click "+ Add Entry" to begin.'
+            : 'No entries match your filters.'}
         </div>
-      )}
-
-      {/* Primitives list */}
-      {filteredPrimitives.length > 0 && (
-        <section className="list-section">
-          <h2 className="list-heading primitive-heading">Primitives</h2>
-          <div className="item-list">
-            {filteredPrimitives.map(p => (
-              <div key={p.id} className="item-card primitive-card">
-                <div className="item-main">
-                  {p.isStandalone && p.character && (
-                    <span className="item-character">{p.character}</span>
-                  )}
-                  <div className="item-info">
-                    <span className="item-keyword">{p.name}</span>
-                    {p.meanings.length > 0 && (
-                      <span className="item-meta">{p.meanings.join(', ')}</span>
-                    )}
-                  </div>
-                  {p.isStandalone && (
-                    <span className="badge badge-standalone">Standalone</span>
-                  )}
-                </div>
-                <div className="item-actions">
-                  <button className="icon-btn" onClick={() => onEditPrimitive(p)} title="Edit">✏️</button>
-                  <button className="icon-btn danger" onClick={() => confirmDelete('primitive', p.id, p.name)} title="Delete">🗑</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Characters list */}
-      {filteredCharacters.length > 0 && (
-        <section className="list-section">
-          <h2 className="list-heading character-heading">Characters</h2>
-          <div className="item-list">
-            {filteredCharacters.map(c => (
-              <div key={c.id} className={`item-card character-card ${c.isMastered ? 'mastered' : ''}`}>
-                <div className="item-main">
-                  <span className="item-character">{c.character}</span>
-                  <div className="item-info">
-                    <span className="item-keyword">{c.keyword}</span>
-                    <span className="item-meta">
-                      Book {c.bookNumber} · Lesson {c.lessonNumber}
-                      {c.heisigNumber && ` · #${c.heisigNumber}`}
-                    </span>
-                    {c.story && (
-                      <span className="item-story">{c.story}</span>
-                    )}
-                  </div>
-                  {c.primitiveIds.length > 0 && (
-                    <div className="item-primitives">
-                      {c.primitiveIds.map(pid => {
-                        const prim = primitives.find(p => p.id === pid)
-                        return prim ? (
-                          <span key={pid} className="primitive-chip">{prim.name}</span>
-                        ) : null
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="item-actions">
-                  <button
-                    className={`icon-btn ${c.isMastered ? 'mastered-btn' : ''}`}
-                    onClick={() => onToggleMastered(c.id)}
-                    title={c.isMastered ? 'Mark unmastered' : 'Mark mastered'}
-                  >
-                    {c.isMastered ? '★' : '☆'}
-                  </button>
-                  <button className="icon-btn" onClick={() => onEditCharacter(c)} title="Edit">✏️</button>
-                  <button className="icon-btn danger" onClick={() => confirmDelete('character', c.id, c.keyword)} title="Delete">🗑</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      ) : (
+        <div className="item-list">
+          {filtered.map(entry => (
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              entries={entries}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onToggleMastered={onToggleMastered}
+            />
+          ))}
+        </div>
       )}
     </div>
   )

@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
+import { entryType, entryDisplayName } from '../utils.js'
 
 function shuffle(arr) {
   const a = [...arr]
@@ -9,25 +10,25 @@ function shuffle(arr) {
   return a
 }
 
-function ConfigScreen({ characters, onStart, onExit }) {
+function ConfigScreen({ reviewable, onStart, onExit }) {
   const [mode, setMode] = useState('random20')
   const [filterBook, setFilterBook] = useState('all')
   const [lessonStart, setLessonStart] = useState('')
   const [lessonEnd, setLessonEnd] = useState('')
-  const [pool, setPool] = useState('all') // 'all' | 'mastered' | 'unmastered'
+  const [pool, setPool] = useState('all')
 
   const eligible = useMemo(() => {
-    return characters.filter(c => {
-      const matchBook = filterBook === 'all' || String(c.bookNumber) === filterBook
-      const matchLessonStart = lessonStart === '' || c.lessonNumber >= Number(lessonStart)
-      const matchLessonEnd = lessonEnd === '' || c.lessonNumber <= Number(lessonEnd)
+    return reviewable.filter(e => {
+      const matchBook = filterBook === 'all' || String(e.bookNumber) === filterBook
+      const matchStart = lessonStart === '' || (e.lessonNumber ?? 0) >= Number(lessonStart)
+      const matchEnd = lessonEnd === '' || (e.lessonNumber ?? Infinity) <= Number(lessonEnd)
       const matchPool =
         pool === 'all' ||
-        (pool === 'mastered' && c.isMastered) ||
-        (pool === 'unmastered' && !c.isMastered)
-      return matchBook && matchLessonStart && matchLessonEnd && matchPool
+        (pool === 'mastered' && e.isMastered) ||
+        (pool === 'unmastered' && !e.isMastered)
+      return matchBook && matchStart && matchEnd && matchPool
     })
-  }, [characters, filterBook, lessonStart, lessonEnd, pool])
+  }, [reviewable, filterBook, lessonStart, lessonEnd, pool])
 
   function handleStart() {
     let queue = shuffle(eligible)
@@ -82,23 +83,9 @@ function ConfigScreen({ characters, onStart, onExit }) {
         <div className="config-section">
           <h3 className="config-label">Filter by Lesson Range</h3>
           <div className="lesson-range">
-            <input
-              className="form-input range-input"
-              type="number"
-              placeholder="From lesson"
-              value={lessonStart}
-              onChange={e => setLessonStart(e.target.value)}
-              min="1"
-            />
+            <input className="form-input range-input" type="number" placeholder="From" value={lessonStart} onChange={e => setLessonStart(e.target.value)} min="1" />
             <span className="range-dash">–</span>
-            <input
-              className="form-input range-input"
-              type="number"
-              placeholder="To lesson"
-              value={lessonEnd}
-              onChange={e => setLessonEnd(e.target.value)}
-              min="1"
-            />
+            <input className="form-input range-input" type="number" placeholder="To" value={lessonEnd} onChange={e => setLessonEnd(e.target.value)} min="1" />
           </div>
         </div>
 
@@ -109,11 +96,7 @@ function ConfigScreen({ characters, onStart, onExit }) {
           )}
         </div>
 
-        <button
-          className="btn btn-primary btn-lg"
-          onClick={handleStart}
-          disabled={eligible.length === 0}
-        >
+        <button className="btn btn-primary btn-lg" onClick={handleStart} disabled={eligible.length === 0}>
           Start Session
         </button>
       </div>
@@ -121,21 +104,12 @@ function ConfigScreen({ characters, onStart, onExit }) {
   )
 }
 
-function FlipCard({ card, primitives, cardIndex, total, mode, onSuccess, onFail, onExit }) {
+function FlipCard({ card, entries, cardIndex, total, mode, onSuccess, onFail, onExit }) {
   const [revealed, setRevealed] = useState(false)
 
-  const cardPrimitives = card.primitiveIds
-    .map(id => primitives.find(p => p.id === id))
+  const components = card.componentIds
+    .map(id => entries.find(e => e.id === id))
     .filter(Boolean)
-
-  function handleReveal() {
-    setRevealed(true)
-  }
-
-  function handleGrade(success) {
-    setRevealed(false)
-    success ? onSuccess() : onFail()
-  }
 
   return (
     <div className="review-session">
@@ -145,15 +119,14 @@ function FlipCard({ card, primitives, cardIndex, total, mode, onSuccess, onFail,
       </div>
 
       <div className="flip-card">
-        {/* Keyword side — always visible */}
         <div className="card-keyword-area">
           <p className="card-label">Keyword</p>
           <h2 className="card-keyword">{card.keyword}</h2>
-          {card.bookNumber && (
+          {(card.bookNumber || card.heisigNumber) && (
             <p className="card-meta">
-              Book {card.bookNumber}
-              {card.lessonNumber ? ` · Lesson ${card.lessonNumber}` : ''}
-              {card.heisigNumber ? ` · #${card.heisigNumber}` : ''}
+              {card.bookNumber && `Book ${card.bookNumber}`}
+              {card.lessonNumber && ` · Lesson ${card.lessonNumber}`}
+              {card.heisigNumber && ` · #${card.heisigNumber}`}
             </p>
           )}
         </div>
@@ -161,28 +134,30 @@ function FlipCard({ card, primitives, cardIndex, total, mode, onSuccess, onFail,
         {!revealed ? (
           <div className="card-think-area">
             <p className="card-hint">Think of the character and its story…</p>
-            <button className="btn btn-primary btn-lg reveal-btn" onClick={handleReveal}>
+            <button className="btn btn-primary btn-lg reveal-btn" onClick={() => setRevealed(true)}>
               Show Character
             </button>
           </div>
         ) : (
           <div className="card-reveal-area">
             <div className="card-character-display">{card.character}</div>
-            {cardPrimitives.length > 0 && (
-              <div className="card-primitives">
-                {cardPrimitives.map(p => (
-                  <span key={p.id} className="primitive-chip">
-                    {p.isStandalone && p.character ? `${p.character} ` : ''}{p.name}
+
+            {components.length > 0 && (
+              <div className="card-components">
+                {components.map(c => (
+                  <span key={c.id} className={`comp-tag comp-tag-${entryType(c)}`}>
+                    {c.character && <span>{c.character}</span>}
+                    {entryDisplayName(c)}
                   </span>
                 ))}
               </div>
             )}
-            {card.story && (
-              <p className="card-story">{card.story}</p>
-            )}
+
+            {card.story && <p className="card-story">{card.story}</p>}
+
             <div className="grade-buttons">
-              <button className="btn btn-fail" onClick={() => handleGrade(false)}>✗ Missed</button>
-              <button className="btn btn-success" onClick={() => handleGrade(true)}>✓ Got it</button>
+              <button className="btn btn-fail" onClick={onFail}>✗ Missed</button>
+              <button className="btn btn-success" onClick={onSuccess}>✓ Got it</button>
             </div>
           </div>
         )}
@@ -222,8 +197,11 @@ function SessionSummary({ results, onRestart, onExit }) {
   )
 }
 
-export default function ReviewView({ characters, primitives, onToggleMastered, onExit }) {
-  const [phase, setPhase] = useState('config') // 'config' | 'session' | 'summary'
+export default function ReviewView({ entries, onToggleMastered, onExit }) {
+  // Only entries with a standalone keyword are reviewable
+  const reviewable = useMemo(() => entries.filter(e => e.keyword?.trim()), [entries])
+
+  const [phase, setPhase] = useState('config')
   const [queue, setQueue] = useState([])
   const [mode, setMode] = useState('random20')
   const [cardIndex, setCardIndex] = useState(0)
@@ -237,6 +215,20 @@ export default function ReviewView({ characters, primitives, onToggleMastered, o
     setPhase('session')
   }
 
+  function advance(newResults) {
+    const next = cardIndex + 1
+    if (mode === 'infinite') {
+      if (next >= queue.length) {
+        setQueue(q => shuffle(q))
+        setCardIndex(0)
+      } else {
+        setCardIndex(next)
+      }
+    } else {
+      next >= queue.length ? setPhase('summary') : setCardIndex(next)
+    }
+  }
+
   function handleSuccess() {
     const card = queue[cardIndex]
     const newResults = [...results, { card, success: true }]
@@ -246,53 +238,24 @@ export default function ReviewView({ characters, primitives, onToggleMastered, o
   }
 
   function handleFail() {
-    const card = queue[cardIndex]
-    const newResults = [...results, { card, success: false }]
+    const newResults = [...results, { card: queue[cardIndex], success: false }]
     setResults(newResults)
     advance(newResults)
   }
 
-  function advance(newResults) {
-    const next = cardIndex + 1
-    if (mode === 'infinite') {
-      if (next >= queue.length) {
-        // reshuffle and loop
-        setQueue(q => shuffle(q))
-        setCardIndex(0)
-      } else {
-        setCardIndex(next)
-      }
-    } else {
-      if (next >= queue.length) {
-        setPhase('summary')
-      } else {
-        setCardIndex(next)
-      }
-    }
-  }
-
   if (phase === 'config') {
-    return <ConfigScreen characters={characters} onStart={startSession} onExit={onExit} />
+    return <ConfigScreen reviewable={reviewable} onStart={startSession} onExit={onExit} />
   }
 
   if (phase === 'summary') {
     return <SessionSummary results={results} onRestart={() => setPhase('config')} onExit={onExit} />
   }
 
-  if (queue.length === 0) {
-    return (
-      <div className="review-config">
-        <p>No characters to review.</p>
-        <button className="btn btn-outline" onClick={onExit}>Back</button>
-      </div>
-    )
-  }
-
   return (
     <FlipCard
       key={`${cardIndex}-${queue[cardIndex]?.id}`}
       card={queue[cardIndex]}
-      primitives={primitives}
+      entries={entries}
       cardIndex={cardIndex}
       total={queue.length}
       mode={mode}

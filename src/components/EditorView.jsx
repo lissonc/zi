@@ -1,292 +1,224 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
+import { entryDisplayName, entryType } from '../utils.js'
 
-function PrimitiveForm({ initial, onSave, onCancel }) {
-  const [name, setName] = useState(initial?.name || '')
-  const [meanings, setMeanings] = useState(initial?.meanings?.join(', ') || '')
-  const [isStandalone, setIsStandalone] = useState(initial?.isStandalone || false)
-  const [character, setCharacter] = useState(initial?.character || '')
+export default function EditorView({ item, entries, onSave, onCancel }) {
+  const isEditing = Boolean(item?.id)
 
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (!name.trim()) return
-    onSave({
-      ...(initial || {}),
-      name: name.trim(),
-      meanings: meanings.split(',').map(m => m.trim()).filter(Boolean),
-      isStandalone,
-      character: isStandalone ? character.trim() : null,
-    })
-  }
+  const [character, setCharacter] = useState(item?.character || '')
+  const [keyword, setKeyword] = useState(item?.keyword || '')
+  const [primKwInput, setPrimKwInput] = useState(item?.primitiveKeywords?.join(', ') || '')
+  const [heisigNumber, setHeisigNumber] = useState(item?.heisigNumber ?? '')
+  const [bookNumber, setBookNumber] = useState(item?.bookNumber ?? 1)
+  const [lessonNumber, setLessonNumber] = useState(item?.lessonNumber ?? '')
+  const [story, setStory] = useState(item?.story || '')
+  const [componentIds, setComponentIds] = useState(item?.componentIds || [])
+  const [compSearch, setCompSearch] = useState('')
 
-  return (
-    <form className="editor-form" onSubmit={handleSubmit}>
-      <div className="form-group">
-        <label className="form-label">Name <span className="required">*</span></label>
-        <input
-          className="form-input"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="e.g. Walking Legs"
-          required
-          autoFocus
-        />
-        <p className="form-hint">The name used in mnemonic stories.</p>
-      </div>
+  const primitiveKeywords = primKwInput.split(',').map(s => s.trim()).filter(Boolean)
+  const hasKeyword = keyword.trim().length > 0
+  const hasPrimKw = primitiveKeywords.length > 0
+  const derivedType = hasKeyword && hasPrimKw ? 'dual' : hasKeyword ? 'character' : 'primitive'
 
-      <div className="form-group">
-        <label className="form-label">Meanings</label>
-        <input
-          className="form-input"
-          value={meanings}
-          onChange={e => setMeanings(e.target.value)}
-          placeholder="e.g. legs, walking, movement (comma-separated)"
-        />
-      </div>
-
-      <div className="form-group">
-        <label className="form-label checkbox-label">
-          <input
-            type="checkbox"
-            checked={isStandalone}
-            onChange={e => setIsStandalone(e.target.checked)}
-          />
-          Also a standalone character
-        </label>
-      </div>
-
-      {isStandalone && (
-        <div className="form-group">
-          <label className="form-label">Character</label>
-          <input
-            className="form-input form-input-char"
-            value={character}
-            onChange={e => setCharacter(e.target.value)}
-            placeholder="e.g. 人"
-            maxLength={2}
-          />
-        </div>
-      )}
-
-      <div className="form-actions">
-        <button type="submit" className="btn btn-primitive">
-          {initial ? 'Update Primitive' : 'Add Primitive'}
-        </button>
-        <button type="button" className="btn btn-outline" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
+  // Exclude self from component candidates
+  const candidates = useMemo(() =>
+    entries.filter(e => e.id !== item?.id),
+    [entries, item?.id]
   )
-}
 
-function CharacterForm({ initial, primitives, onSave, onCancel }) {
-  const [keyword, setKeyword] = useState(initial?.keyword || '')
-  const [character, setCharacter] = useState(initial?.character || '')
-  const [heisigNumber, setHeisigNumber] = useState(initial?.heisigNumber || '')
-  const [bookNumber, setBookNumber] = useState(initial?.bookNumber || 1)
-  const [lessonNumber, setLessonNumber] = useState(initial?.lessonNumber || '')
-  const [story, setStory] = useState(initial?.story || '')
-  const [selectedPrimIds, setSelectedPrimIds] = useState(initial?.primitiveIds || [])
-  const [primSearch, setPrimSearch] = useState('')
-
-  const filteredPrims = primitives.filter(p => {
-    const q = primSearch.toLowerCase()
-    return (
-      q === '' ||
-      p.name.toLowerCase().includes(q) ||
-      p.meanings.some(m => m.toLowerCase().includes(q))
+  const filteredCandidates = useMemo(() => {
+    const q = compSearch.toLowerCase()
+    if (!q) return candidates
+    return candidates.filter(e =>
+      e.character?.includes(q) ||
+      e.keyword?.toLowerCase().includes(q) ||
+      e.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q))
     )
-  })
+  }, [candidates, compSearch])
 
-  function togglePrimitive(id) {
-    setSelectedPrimIds(prev =>
+  function toggleComponent(id) {
+    setComponentIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
   }
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!keyword.trim() || !character.trim()) return
+    if (!hasKeyword && !hasPrimKw) {
+      alert('An entry must have at least a keyword or one primitive keyword.')
+      return
+    }
     onSave({
-      ...(initial || {}),
-      keyword: keyword.trim(),
+      ...(item || {}),
       character: character.trim(),
-      heisigNumber: heisigNumber ? Number(heisigNumber) : null,
-      bookNumber: Number(bookNumber),
-      lessonNumber: lessonNumber ? Number(lessonNumber) : null,
+      keyword: keyword.trim(),
+      primitiveKeywords,
+      heisigNumber: heisigNumber !== '' ? Number(heisigNumber) : null,
+      bookNumber: hasKeyword ? Number(bookNumber) : null,
+      lessonNumber: lessonNumber !== '' ? Number(lessonNumber) : null,
       story: story.trim(),
-      primitiveIds: selectedPrimIds,
-      isMastered: initial?.isMastered || false,
+      componentIds,
+      isMastered: item?.isMastered || false,
     })
   }
 
-  return (
-    <form className="editor-form" onSubmit={handleSubmit}>
-      <div className="form-row">
-        <div className="form-group flex-1">
-          <label className="form-label">Keyword <span className="required">*</span></label>
-          <input
-            className="form-input"
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            placeholder="e.g. Sword"
-            required
-            autoFocus
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Character <span className="required">*</span></label>
-          <input
-            className="form-input form-input-char"
-            value={character}
-            onChange={e => setCharacter(e.target.value)}
-            placeholder="e.g. 刀"
-            required
-            maxLength={2}
-          />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group flex-1">
-          <label className="form-label">Heisig #</label>
-          <input
-            className="form-input"
-            type="number"
-            value={heisigNumber}
-            onChange={e => setHeisigNumber(e.target.value)}
-            placeholder="e.g. 45"
-            min="1"
-          />
-        </div>
-        <div className="form-group flex-1">
-          <label className="form-label">Book</label>
-          <select className="form-input" value={bookNumber} onChange={e => setBookNumber(e.target.value)}>
-            <option value={1}>Book 1</option>
-            <option value={2}>Book 2</option>
-          </select>
-        </div>
-        <div className="form-group flex-1">
-          <label className="form-label">Lesson</label>
-          <input
-            className="form-input"
-            type="number"
-            value={lessonNumber}
-            onChange={e => setLessonNumber(e.target.value)}
-            placeholder="e.g. 5"
-            min="1"
-          />
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">Mnemonic Story</label>
-        <textarea
-          className="form-input form-textarea"
-          value={story}
-          onChange={e => setStory(e.target.value)}
-          placeholder="Describe a vivid scene linking the keyword to the character's primitives…"
-          rows={4}
-        />
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">Primitives</label>
-        {primitives.length === 0 ? (
-          <p className="form-hint warning">No primitives in the library yet. Add primitives first.</p>
-        ) : (
-          <>
-            <input
-              className="form-input"
-              value={primSearch}
-              onChange={e => setPrimSearch(e.target.value)}
-              placeholder="Search primitives…"
-            />
-            <div className="primitive-picker">
-              {filteredPrims.map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`prim-chip ${selectedPrimIds.includes(p.id) ? 'selected' : ''}`}
-                  onClick={() => togglePrimitive(p.id)}
-                >
-                  {p.isStandalone && p.character ? `${p.character} ` : ''}{p.name}
-                </button>
-              ))}
-              {filteredPrims.length === 0 && (
-                <p className="form-hint">No matching primitives.</p>
-              )}
-            </div>
-          </>
-        )}
-        {selectedPrimIds.length > 0 && (
-          <p className="form-hint">
-            Selected: {selectedPrimIds.map(id => primitives.find(p => p.id === id)?.name).filter(Boolean).join(', ')}
-          </p>
-        )}
-      </div>
-
-      <div className="form-actions">
-        <button type="submit" className="btn btn-character">
-          {initial ? 'Update Character' : 'Add Character'}
-        </button>
-        <button type="button" className="btn btn-outline" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  )
-}
-
-export default function EditorView({ type, item, primitives, onSavePrimitive, onSaveCharacter, onCancel }) {
-  const [activeType, setActiveType] = useState(type || 'primitive')
-
-  useEffect(() => {
-    if (type) setActiveType(type)
-  }, [type])
-
-  const isEditing = !!item
+  const typeLabel = { primitive: 'Primitive', character: 'Character', dual: 'Dual' }[derivedType]
+  const typeClass = { primitive: 'type-pill-primitive', character: 'type-pill-character', dual: 'type-pill-dual' }[derivedType]
 
   return (
     <div className="editor">
       <div className="editor-header">
         <h2 className="editor-title">
-          {isEditing ? `Edit ${activeType === 'primitive' ? 'Primitive' : 'Character'}` : 'Add to Library'}
+          {isEditing ? 'Edit Entry' : 'Add Entry'}
         </h2>
-        {!isEditing && (
-          <div className="type-toggle">
-            <button
-              className={`type-btn ${activeType === 'primitive' ? 'active primitive-active' : ''}`}
-              onClick={() => setActiveType('primitive')}
-            >
-              Primitive
-            </button>
-            <button
-              className={`type-btn ${activeType === 'character' ? 'active character-active' : ''}`}
-              onClick={() => setActiveType('character')}
-            >
-              Character
-            </button>
-          </div>
-        )}
+        <span className={`type-pill ${typeClass}`}>{typeLabel}</span>
       </div>
 
-      {activeType === 'primitive' ? (
-        <PrimitiveForm
-          key={item?.id || 'new-prim'}
-          initial={item}
-          onSave={onSavePrimitive}
-          onCancel={onCancel}
-        />
-      ) : (
-        <CharacterForm
-          key={item?.id || 'new-char'}
-          initial={item}
-          primitives={primitives}
-          onSave={onSaveCharacter}
-          onCancel={onCancel}
-        />
-      )}
+      <form className="editor-form" onSubmit={handleSubmit}>
+
+        {/* Glyph + keyword row */}
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Character</label>
+            <input
+              className="form-input form-input-char"
+              value={character}
+              onChange={e => setCharacter(e.target.value)}
+              placeholder="e.g. 人"
+              maxLength={2}
+              autoFocus
+            />
+          </div>
+          <div className="form-group flex-1">
+            <label className="form-label">Standalone Keyword</label>
+            <input
+              className="form-input"
+              value={keyword}
+              onChange={e => setKeyword(e.target.value)}
+              placeholder="e.g. Person  (leave blank if pure primitive)"
+            />
+            <p className="form-hint">The English meaning when this is a standalone character.</p>
+          </div>
+        </div>
+
+        {/* Primitive keywords */}
+        <div className="form-group">
+          <label className="form-label">Primitive Keywords</label>
+          <input
+            className="form-input"
+            value={primKwInput}
+            onChange={e => setPrimKwInput(e.target.value)}
+            placeholder="e.g. person, human, walking legs  (comma-separated)"
+          />
+          <p className="form-hint">
+            The name(s) used when this entry appears as a building block in stories.
+            Leave blank if this character is never used as a component.
+          </p>
+        </div>
+
+        {/* Metadata — only relevant for standalone characters */}
+        {hasKeyword && (
+          <div className="form-row">
+            <div className="form-group flex-1">
+              <label className="form-label">Heisig #</label>
+              <input
+                className="form-input"
+                type="number"
+                value={heisigNumber}
+                onChange={e => setHeisigNumber(e.target.value)}
+                placeholder="e.g. 45"
+                min="1"
+              />
+            </div>
+            <div className="form-group flex-1">
+              <label className="form-label">Book</label>
+              <select className="form-input" value={bookNumber} onChange={e => setBookNumber(e.target.value)}>
+                <option value={1}>Book 1</option>
+                <option value={2}>Book 2</option>
+              </select>
+            </div>
+            <div className="form-group flex-1">
+              <label className="form-label">Lesson</label>
+              <input
+                className="form-input"
+                type="number"
+                value={lessonNumber}
+                onChange={e => setLessonNumber(e.target.value)}
+                placeholder="e.g. 5"
+                min="1"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mnemonic story */}
+        <div className="form-group">
+          <label className="form-label">Mnemonic Story</label>
+          <textarea
+            className="form-input form-textarea"
+            value={story}
+            onChange={e => setStory(e.target.value)}
+            placeholder="Describe a vivid scene linking the keyword to the character's components…"
+            rows={4}
+          />
+        </div>
+
+        {/* Component picker */}
+        <div className="form-group">
+          <label className="form-label">Components</label>
+          {candidates.length === 0 ? (
+            <p className="form-hint">No other entries in the library yet.</p>
+          ) : (
+            <>
+              <input
+                className="form-input"
+                value={compSearch}
+                onChange={e => setCompSearch(e.target.value)}
+                placeholder="Search entries…"
+              />
+              <div className="component-picker">
+                {filteredCandidates.map(e => {
+                  const t = entryType(e)
+                  const selected = componentIds.includes(e.id)
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className={`comp-chip comp-chip-${t} ${selected ? 'selected' : ''}`}
+                      onClick={() => toggleComponent(e.id)}
+                      title={e.primitiveKeywords?.join(', ') || e.keyword}
+                    >
+                      {e.character && <span className="comp-chip-glyph">{e.character}</span>}
+                      <span>{entryDisplayName(e)}</span>
+                    </button>
+                  )
+                })}
+                {filteredCandidates.length === 0 && (
+                  <p className="form-hint">No matching entries.</p>
+                )}
+              </div>
+            </>
+          )}
+          {componentIds.length > 0 && (
+            <p className="form-hint">
+              Selected:{' '}
+              {componentIds
+                .map(id => entries.find(e => e.id === id))
+                .filter(Boolean)
+                .map(entryDisplayName)
+                .join(', ')}
+            </p>
+          )}
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className={`btn btn-${derivedType === 'character' ? 'character' : derivedType === 'primitive' ? 'primitive' : 'dual'}`}>
+            {isEditing ? 'Update Entry' : 'Add Entry'}
+          </button>
+          <button type="button" className="btn btn-outline" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
