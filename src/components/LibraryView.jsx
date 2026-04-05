@@ -117,7 +117,6 @@ export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDe
 
       const matchBook =
         filterBook === 'all' ||
-        !entry.bookNumber ||
         String(entry.bookNumber) === filterBook
 
       const matchLesson =

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
 
 function shuffle(arr) {
@@ -39,11 +39,14 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
     onStart(queue, mode)
   }
 
+  const handleStartRef = useRef(handleStart)
+  useEffect(() => { handleStartRef.current = handleStart })
+
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key === 'Escape') { e.preventDefault(); onExit(); return }
       if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && eligible.length > 0) {
-        e.preventDefault(); handleStart(); return
+        e.preventDefault(); handleStartRef.current(); return
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -272,7 +275,7 @@ export default function ReviewView({ entries, entryMap, onToggleMastered, onExit
     setPhase('session')
   }
 
-  function advance(newResults) {
+  function advance() {
     const next = cardIndex + 1
     if (mode === 'infinite') {
       if (next >= queue.length) {
@@ -291,13 +294,13 @@ export default function ReviewView({ entries, entryMap, onToggleMastered, onExit
     const newResults = [...results, { card, success: true }]
     setResults(newResults)
     if (!card.isMastered) onToggleMastered(card.id)
-    advance(newResults)
+    advance()
   }
 
   function handleFail() {
     const newResults = [...results, { card: queue[cardIndex], success: false }]
     setResults(newResults)
-    advance(newResults)
+    advance()
   }
 
   if (phase === 'config') {

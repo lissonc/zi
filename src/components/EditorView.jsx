@@ -258,24 +258,25 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
     }
   }
 
+  function validateAndBuild() {
+    const data = buildData()
+    if (!data.keyword && data.primitiveKeywords.length === 0) {
+      alert('An entry must have at least a keyword or one primitive keyword.')
+      return null
+    }
+    return data
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
-    const data = buildData()
-    const hasFinalPrimKw = data.primitiveKeywords.length > 0
-    if (!data.keyword && !hasFinalPrimKw) {
-      alert('An entry must have at least a keyword or one primitive keyword.')
-      return
-    }
+    const data = validateAndBuild()
+    if (!data) return
     onSave(data)
   }
 
   function handleNavigate(target) {
-    const data = buildData()
-    const hasFinalPrimKw = data.primitiveKeywords.length > 0
-    if (!data.keyword && !hasFinalPrimKw) {
-      alert('An entry must have at least a keyword or one primitive keyword.')
-      return
-    }
+    const data = validateAndBuild()
+    if (!data) return
     onSaveAndNavigate(data, target)
   }
 

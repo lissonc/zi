@@ -5,7 +5,9 @@ export default function WelcomeView({ onLoad, onCreate }) {
 
   function handleFile(e) {
     const file = e.target.files[0]
-    if (file) onLoad(file)
+    if (!file) return
+    e.target.value = ''
+    onLoad(file)
   }
 
   return (
