@@ -96,25 +96,25 @@ export default function App() {
 
   // ── Entry CRUD ───────────────────────────────────────────────────────────────
 
-  const saveEntry = useCallback((data) => {
+  const upsertEntry = useCallback((data) => {
     if (data.id) {
       setEntries(prev => prev.map(e => e.id === data.id ? data : e))
     } else {
       setEntries(prev => [...prev, { ...data, id: generateId(), isMastered: false }])
     }
-    setEditingItem(null)
-    setCurrentView('library')
   }, [])
 
+  const saveEntry = useCallback((data) => {
+    upsertEntry(data)
+    setEditingItem(null)
+    setCurrentView('library')
+  }, [upsertEntry])
+
   const saveAndNavigate = useCallback((data, nextItem) => {
-    if (data.id) {
-      setEntries(prev => prev.map(e => e.id === data.id ? data : e))
-    } else {
-      setEntries(prev => [...prev, { ...data, id: generateId(), isMastered: false }])
-    }
+    upsertEntry(data)
     setEditingItem(nextItem)
     // currentView stays 'editor'
-  }, [])
+  }, [upsertEntry])
 
   const deleteEntry = useCallback((id) => {
     const usedByIds = usedByMap.get(id)
