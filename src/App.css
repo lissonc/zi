@@ -1248,12 +1248,72 @@ kbd {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
 
-/* ── Responsive ──────────────────────────────────────────────────────────────── */
-@media (max-width: 600px) {
+/* ── Utility classes ─────────────────────────────────────────────────────────── */
+.form-group-narrow { max-width: 120px; }
+
+.welcome-example-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: -4px 0 8px;
+  text-align: center;
+}
+
+/* ── Responsive: tablets / small laptops ────────────────────────────────────── */
+@media (max-width: 768px) {
   .header { padding: 0 12px; }
   .mode-badge { display: none; }
+  .header-nav { gap: 2px; }
+  .nav-btn { padding: 6px 8px; font-size: 13px; }
+
+  .main { padding: 16px 12px 32px; }
+
+  .library-toolbar { flex-direction: column; align-items: stretch; }
+  .library-filters { flex-direction: column; }
+  .search-input { min-width: 0; width: 100%; }
+  .filter-input { width: 100%; }
+
+  .editor { max-width: 100%; }
+  .form-row { flex-direction: column; }
+  .form-row .form-group { min-width: unset; width: 100%; }
+  .form-group-narrow { max-width: unset; }
+
+  .review-config-card { padding: 24px 16px; }
   .flip-card { padding: 24px 16px; }
-  .card-character-display { font-size: 72px; }
-  .card-keyword { font-size: 28px; }
-  .library-toolbar { flex-direction: column; align-items: flex-start; }
+  .grade-buttons .btn { padding: 12px 24px; min-height: 48px; }
+
+  .graph-wrap { height: 400px; }
+  .graph-controls { flex-wrap: wrap; gap: 4px; bottom: 8px; right: 8px; left: 8px; justify-content: center; }
+  .graph-info { min-width: unset; max-width: 200px; font-size: 13px; }
+  .ctrl-slider { width: 56px; }
+  .graph-legend { display: none; }
+
+  .icon-btn { min-width: 40px; min-height: 40px; }
+  .item-card { padding: 12px; }
+}
+
+/* ── Responsive: phones ─────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .header { height: 48px; }
+  .header-brand { gap: 8px; }
+  .header-logo { font-size: 20px; }
+  .header-title { font-size: 15px; }
+  .nav-btn .nav-text,
+  .nav-count { display: none; }
+  .nav-btn { padding: 8px; font-size: 16px; }
+
+  .card-character-display { font-size: 64px; }
+  .card-keyword { font-size: 24px; }
+
+  .graph-wrap { height: 300px; }
+  .graph-controls .ctrl-label,
+  .graph-controls .ctrl-slider { display: none; }
+  .ctrl-btn { min-width: 36px; min-height: 36px; font-size: 16px; }
+
+  .welcome-content { padding: 24px 16px; }
+  .welcome-actions .btn { width: 100%; }
+
+  .summary-card { padding: 20px 12px; }
+  .comp-tag { font-size: 11px; padding: 2px 6px; }
+  .prim-kw-chip { font-size: 12px; }
+  .story-mention-dropdown { max-width: calc(100vw - 32px); }
 }

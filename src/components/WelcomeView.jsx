@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 
-export default function WelcomeView({ onLoad, onCreate }) {
+export default function WelcomeView({ onLoad, onCreate, onLoadExample }) {
   const fileRef = useRef(null)
 
   function handleFile(e) {
@@ -16,7 +16,7 @@ export default function WelcomeView({ onLoad, onCreate }) {
         <div className="welcome-logo">字</div>
         <h1 className="welcome-title">Radix</h1>
         <p className="welcome-subtitle">
-          Learn Hanzi & Kanji through the Heisig Method — deep mnemonic encoding,
+          Learn Hanzi & Kanji through deep mnemonic encoding,
           not rote repetition.
         </p>
 
@@ -31,6 +31,10 @@ export default function WelcomeView({ onLoad, onCreate }) {
             style={{ display: 'none' }}
             onChange={handleFile}
           />
+          <button className="btn btn-outline btn-lg" onClick={onLoadExample}>
+            Try Example Library
+          </button>
+          <p className="welcome-example-hint">15 sample entries to explore the app</p>
           <button className="btn btn-outline btn-lg" onClick={onCreate}>
             Create New Library
           </button>

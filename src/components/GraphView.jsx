@@ -426,7 +426,8 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     const oldPos = {}
     for (const n of physRef.current.nodes) oldPos[n.id] = { x: n.x, y: n.y }
 
-    const cx = W / 2, cy = H / 2
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const cx = (rect?.width || W) / 2, cy = (rect?.height || H) / 2
     const N  = visibleEntries.length
 
     const nodes = visibleEntries.map((e, i) => {
@@ -686,6 +687,52 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     setHoverId(null)
   }
 
+  // ── Touch handlers (map to mouse logic) ──────────────────────────────────────
+
+  const touchRef = useRef(null)
+
+  function onTouchStart(e) {
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      touchRef.current = { type: 'drag' }
+      onMouseDown({ clientX: t.clientX, clientY: t.clientY, preventDefault() {} })
+    } else if (e.touches.length === 2) {
+      const [a, b] = [e.touches[0], e.touches[1]]
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+      touchRef.current = { type: 'pinch', startDist: dist, startZoom: zoomRef.current }
+      // Cancel any node drag
+      if (nodeDragRef.current) {
+        const phys = nodeMapRef.current[nodeDragRef.current.nodeId]
+        if (phys) phys.pinned = false
+        nodeDragRef.current = null
+      }
+      canvasDragRef.current = null
+    }
+  }
+
+  function onTouchMove(e) {
+    e.preventDefault()
+    if (e.touches.length === 1 && touchRef.current?.type === 'drag') {
+      const t = e.touches[0]
+      onMouseMove({ clientX: t.clientX, clientY: t.clientY, preventDefault() {} })
+    } else if (e.touches.length === 2 && touchRef.current?.type === 'pinch') {
+      const [a, b] = [e.touches[0], e.touches[1]]
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+      const scale = dist / touchRef.current.startDist
+      const newZoom = Math.max(0.15, Math.min(6, touchRef.current.startZoom * scale))
+      zoomTargetRef.current = newZoom
+      setZoom(newZoom)
+      zoomRef.current = newZoom
+      panZoomRef.current = { ...panZoomRef.current, zoom: newZoom }
+      redraw()
+    }
+  }
+
+  function onTouchEnd() {
+    onMouseUp()
+    touchRef.current = null
+  }
+
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
 
   useKeyboard(e => {
@@ -737,6 +784,9 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseLeave}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       />
 
       {/* ── Obsidian-style control bar ────────────────────────────────────────── */}
