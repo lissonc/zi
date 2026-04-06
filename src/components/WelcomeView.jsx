@@ -21,16 +21,16 @@ export default function WelcomeView({ onLoad, onCreate, onLoadExample }) {
         </p>
 
         <div className="welcome-actions">
-          <button className="btn btn-primary btn-lg" onClick={() => fileRef.current.click()}>
+          <label className="btn btn-primary btn-lg">
             Upload Library (.json)
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            style={{ display: 'none' }}
-            onChange={handleFile}
-          />
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json"
+              className="sr-only"
+              onChange={handleFile}
+            />
+          </label>
           <button className="btn btn-outline btn-lg" onClick={onLoadExample}>
             Try Example Library
           </button>

@@ -49,16 +49,16 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
           >
             ⟳ <span className="nav-text">Review</span>
           </button>
-          <button className="nav-btn load-btn" onClick={() => fileRef.current.click()} title="Load library">
+          <label className="nav-btn load-btn" title="Load library">
             ↑ <span className="nav-text">Load</span>
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            style={{ display: 'none' }}
-            onChange={handleFile}
-          />
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json"
+              className="sr-only"
+              onChange={handleFile}
+            />
+          </label>
           <button className="nav-btn save-btn" onClick={onDownload} title="Download library (Ctrl+S)">
             ↓ <span className="nav-text">Save</span>
           </button>
