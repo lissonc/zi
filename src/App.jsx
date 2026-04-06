@@ -5,6 +5,7 @@ import LibraryView from './components/LibraryView.jsx'
 import EditorView from './components/EditorView.jsx'
 import ReviewView from './components/ReviewView.jsx'
 import { migrateData } from './utils.js'
+import exampleEntries from './exampleLibrary.js'
 
 function generateId() {
   return Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
@@ -76,6 +77,11 @@ export default function App() {
 
   const createNewLibrary = useCallback(() => {
     setEntries([])
+    setCurrentView('library')
+  }, [])
+
+  const loadExampleLibrary = useCallback(() => {
+    setEntries(exampleEntries)
     setCurrentView('library')
   }, [])
 
@@ -188,7 +194,7 @@ export default function App() {
 
       <main className={isReview ? 'main-review' : 'main'}>
         {currentView === 'welcome' && (
-          <WelcomeView onLoad={loadDatabase} onCreate={createNewLibrary} />
+          <WelcomeView onLoad={loadDatabase} onCreate={createNewLibrary} onLoadExample={loadExampleLibrary} />
         )}
         {currentView === 'library' && (
           <LibraryView

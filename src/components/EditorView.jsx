@@ -451,7 +451,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
         {/* Stroke count for primitives (no Heisig metadata row) */}
         {!hasKeyword && (
           <div className="form-row">
-            <div className="form-group" style={{ maxWidth: 120 }}>
+            <div className="form-group form-group-narrow">
               <label className="form-label">Strokes</label>
               <input
                 className="form-input"
