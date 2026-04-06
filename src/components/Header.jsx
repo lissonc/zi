@@ -32,7 +32,7 @@ export default function Header({ currentView, hasLibrary, onNavigate, onDownload
             onClick={() => onNavigate('library')}
             title="Library (Ctrl+Shift+L)"
           >
-            ☰ <span className="nav-text">Library</span>
+            📖 <span className="nav-text">Library</span>
             <span className="nav-count">{entryCount}</span>
           </button>
           <button
