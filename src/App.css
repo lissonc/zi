@@ -1249,6 +1249,15 @@ kbd {
 ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
 
 /* ── Utility classes ─────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
 .form-group-narrow { max-width: 120px; }
 
 .welcome-example-hint {
@@ -1282,10 +1291,20 @@ kbd {
   .grade-buttons .btn { padding: 12px 24px; min-height: 48px; }
 
   .graph-wrap { height: 400px; }
+  .graph-canvas { touch-action: none; }
   .graph-controls { flex-wrap: wrap; gap: 4px; bottom: 8px; right: 8px; left: 8px; justify-content: center; }
-  .graph-info { min-width: unset; max-width: 200px; font-size: 13px; }
+  .graph-controls .ctrl-divider { display: none; }
+  .graph-info {
+    min-width: unset; max-width: none; font-size: 13px;
+    position: absolute; top: auto; right: 0; bottom: 0; left: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 45%;
+  }
+  .graph-info-main { gap: 8px; }
+  .graph-info-glyph { font-size: 28px; }
   .ctrl-slider { width: 56px; }
   .graph-legend { display: none; }
+  .graph-cap-banner { white-space: normal; text-align: center; left: 8px; right: 8px; transform: none; }
 
   .icon-btn { min-width: 40px; min-height: 40px; }
   .item-card { padding: 12px; }
@@ -1304,10 +1323,13 @@ kbd {
   .card-character-display { font-size: 64px; }
   .card-keyword { font-size: 24px; }
 
-  .graph-wrap { height: 300px; }
+  .graph-wrap { height: 60vh; min-height: 260px; }
   .graph-controls .ctrl-label,
   .graph-controls .ctrl-slider { display: none; }
-  .ctrl-btn { min-width: 36px; min-height: 36px; font-size: 16px; }
+  .graph-controls .ctrl-group { display: none; }
+  .graph-controls .ctrl-toggle .ctrl-toggle-text { display: none; }
+  .ctrl-btn { min-width: 40px; min-height: 40px; font-size: 18px; }
+  .graph-fullscreen-btn { display: none; }
 
   .welcome-content { padding: 24px 16px; }
   .welcome-actions .btn { width: 100%; }

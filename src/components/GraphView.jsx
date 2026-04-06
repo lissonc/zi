@@ -687,51 +687,67 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
     setHoverId(null)
   }
 
-  // ── Touch handlers (map to mouse logic) ──────────────────────────────────────
+  // ── Touch handlers (non-passive, registered via addEventListener) ────────────
+  // React synthetic touch events are passive by default in modern browsers,
+  // so e.preventDefault() is ignored. We register manually like the wheel handler.
 
   const touchRef = useRef(null)
 
-  function onTouchStart(e) {
-    if (e.touches.length === 1) {
-      const t = e.touches[0]
-      touchRef.current = { type: 'drag' }
-      onMouseDown({ clientX: t.clientX, clientY: t.clientY, preventDefault() {} })
-    } else if (e.touches.length === 2) {
-      const [a, b] = [e.touches[0], e.touches[1]]
-      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
-      touchRef.current = { type: 'pinch', startDist: dist, startZoom: zoomRef.current }
-      // Cancel any node drag
-      if (nodeDragRef.current) {
-        const phys = nodeMapRef.current[nodeDragRef.current.nodeId]
-        if (phys) phys.pinned = false
-        nodeDragRef.current = null
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    function handleTouchStart(e) {
+      if (e.touches.length === 1) {
+        const t = e.touches[0]
+        touchRef.current = { type: 'drag' }
+        onMouseDown({ clientX: t.clientX, clientY: t.clientY, preventDefault() {} })
+      } else if (e.touches.length === 2) {
+        e.preventDefault()
+        const [a, b] = [e.touches[0], e.touches[1]]
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+        touchRef.current = { type: 'pinch', startDist: dist, startZoom: zoomRef.current }
+        if (nodeDragRef.current) {
+          const phys = nodeMapRef.current[nodeDragRef.current.nodeId]
+          if (phys) phys.pinned = false
+          nodeDragRef.current = null
+        }
+        canvasDragRef.current = null
       }
-      canvasDragRef.current = null
     }
-  }
 
-  function onTouchMove(e) {
-    e.preventDefault()
-    if (e.touches.length === 1 && touchRef.current?.type === 'drag') {
-      const t = e.touches[0]
-      onMouseMove({ clientX: t.clientX, clientY: t.clientY, preventDefault() {} })
-    } else if (e.touches.length === 2 && touchRef.current?.type === 'pinch') {
-      const [a, b] = [e.touches[0], e.touches[1]]
-      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
-      const scale = dist / touchRef.current.startDist
-      const newZoom = Math.max(0.15, Math.min(6, touchRef.current.startZoom * scale))
-      zoomTargetRef.current = newZoom
-      setZoom(newZoom)
-      zoomRef.current = newZoom
-      panZoomRef.current = { ...panZoomRef.current, zoom: newZoom }
-      redraw()
+    function handleTouchMove(e) {
+      e.preventDefault()
+      if (e.touches.length === 1 && touchRef.current?.type === 'drag') {
+        const t = e.touches[0]
+        onMouseMove({ clientX: t.clientX, clientY: t.clientY, preventDefault() {} })
+      } else if (e.touches.length === 2 && touchRef.current?.type === 'pinch') {
+        const [a, b] = [e.touches[0], e.touches[1]]
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+        const scale = dist / touchRef.current.startDist
+        const newZoom = Math.max(0.15, Math.min(6, touchRef.current.startZoom * scale))
+        zoomTargetRef.current = newZoom
+        setZoom(newZoom)
+        zoomRef.current = newZoom
+        panZoomRef.current = { ...panZoomRef.current, zoom: newZoom }
+        redraw()
+      }
     }
-  }
 
-  function onTouchEnd() {
-    onMouseUp()
-    touchRef.current = null
-  }
+    function handleTouchEnd() {
+      onMouseUp()
+      touchRef.current = null
+    }
+
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
+    canvas.addEventListener('touchend', handleTouchEnd)
+    return () => {
+      canvas.removeEventListener('touchstart', handleTouchStart)
+      canvas.removeEventListener('touchmove', handleTouchMove)
+      canvas.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
 
@@ -784,9 +800,6 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseLeave}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       />
 
       {/* ── Obsidian-style control bar ────────────────────────────────────────── */}
@@ -818,7 +831,7 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
           onClick={() => setShowCircles(v => !v)}
           title={showCircles ? 'Character-only mode' : 'Show circles'}
         >
-          {showCircles ? '◉' : '◯'} Circles
+          {showCircles ? '◉' : '◯'} <span className="ctrl-toggle-text">Circles</span>
         </button>
 
         {/* Keywords toggle */}
@@ -827,14 +840,14 @@ export default function GraphView({ entries, entryMap, usedByMap, onEdit }) {
           onClick={() => setShowKeywords(v => !v)}
           title={showKeywords ? 'Show characters in nodes' : 'Show keywords in nodes'}
         >
-          Aa Keywords
+          Aa <span className="ctrl-toggle-text">Keywords</span>
         </button>
 
         <div className="ctrl-divider" />
 
         {/* Fullscreen */}
         <button
-          className="ctrl-btn"
+          className="ctrl-btn graph-fullscreen-btn"
           onClick={toggleFullscreen}
           title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
         >
