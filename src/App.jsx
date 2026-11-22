@@ -1,230 +1,149 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Header from './components/Header.jsx'
 import WelcomeView from './components/WelcomeView.jsx'
 import LibraryView from './components/LibraryView.jsx'
+import GraphView from './components/GraphView.jsx'
+import StoriesView from './components/StoriesView.jsx'
 import EditorView from './components/EditorView.jsx'
 import ReviewView from './components/ReviewView.jsx'
-import { migrateData } from './utils.js'
+import { useLibrary } from './store/useLibrary.js'
+import { useStories } from './store/useStories.js'
+import { useTheme } from './store/useTheme.js'
 import exampleEntries from './exampleLibrary.js'
 
-function generateId() {
-  return Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
-}
-
-function loadFromStorage() {
-  try {
-    const saved = localStorage.getItem('radix_library')
-    if (saved) return migrateData(JSON.parse(saved))
-  } catch { /* ignore */ }
-  return null
-}
-
 export default function App() {
-  const [currentView, setCurrentView] = useState('welcome')
-  const [entries, setEntries] = useState([])
-  // editing: the entry object being edited, or null for new
-  const [editingItem, setEditingItem] = useState(null)
+  const lib = useLibrary()
+  const stories = useStories()
+  const { theme, resolved, cycle } = useTheme()
 
-  // Derived lookup structures — O(1) id→entry and id→usedBy lookups
-  const entryMap = useMemo(() => {
-    const m = new Map()
-    for (const e of entries) m.set(e.id, e)
-    return m
-  }, [entries])
+  const hasLibrary = lib.entries !== null
+  const [view, setView] = useState('library')
+  const [editing, setEditing] = useState(null)   // entry being edited, or null for a new one
+  const [returnTo, setReturnTo] = useState('library')
+  const [graphFocus, setGraphFocus] = useState(null)
 
-  const usedByMap = useMemo(() => {
-    const m = new Map()
-    for (const e of entries) {
-      for (const cid of e.componentIds) {
-        if (!m.has(cid)) m.set(cid, [])
-        m.get(cid).push(e.id)
-      }
-    }
-    return m
-  }, [entries])
+  const current = hasLibrary ? view : 'welcome'
 
-  useEffect(() => {
-    const saved = loadFromStorage()
-    if (saved) {
-      setEntries(saved)
-      setCurrentView('library')
-    }
+  const openEditor = useCallback((item = null) => {
+    setReturnTo(v => (view === 'editor' ? v : view))
+    setEditing(item)
+    setView('editor')
+  }, [view])
+
+  const closeEditor = useCallback(() => {
+    setEditing(null)
+    setView(returnTo === 'editor' ? 'library' : returnTo)
+  }, [returnTo])
+
+  const saveEntry = useCallback((data) => { lib.upsert(data); closeEditor() }, [lib, closeEditor])
+  const saveAndNavigate = useCallback((data, nextItem) => { lib.upsert(data); setEditing(nextItem) }, [lib])
+
+  const showInGraph = useCallback((entry) => { setGraphFocus(entry.id); setView('graph') }, [])
+
+  const navigate = useCallback((v) => {
+    if (v === 'welcome') return
+    setEditing(null)
+    setView(v)
   }, [])
 
-  useEffect(() => {
-    if (currentView !== 'welcome') {
-      localStorage.setItem('radix_library', JSON.stringify({ entries, savedAt: new Date().toISOString() }))
-    }
-  }, [entries, currentView])
+  const loadFile = useCallback(async (file) => {
+    if (hasLibrary && lib.entries.length > 0 &&
+        !window.confirm(`Replace the current library (${lib.entries.length} entries) with “${file.name}”?`)) return
+    if (await lib.loadFile(file)) setView('library')
+  }, [hasLibrary, lib])
 
-  // ── Database ─────────────────────────────────────────────────────────────────
-
-  const loadDatabase = useCallback((file, { confirmReplace = false } = {}) => {
-    if (confirmReplace && entries.length > 0) {
-      if (!window.confirm(`Replace the current library (${entries.length} entries) with the contents of "${file.name}"?`)) return
-    }
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        setEntries(migrateData(JSON.parse(e.target.result)))
-        setCurrentView('library')
-      } catch {
-        alert('Could not parse file. Make sure it is a valid Radix JSON library.')
-      }
-    }
-    reader.readAsText(file)
-  }, [entries.length])
-
-  const createNewLibrary = useCallback(() => {
-    setEntries([])
-    setCurrentView('library')
-  }, [])
-
-  const loadExampleLibrary = useCallback(() => {
-    setEntries(exampleEntries)
-    setCurrentView('library')
-  }, [])
-
-  const downloadDatabase = useCallback(() => {
-    const now = new Date()
-    const stamp = now.toISOString().replace(/:/g, '-').replace(/\..+/, '')
-    const blob = new Blob(
-      [JSON.stringify({ entries, exportedAt: now.toISOString() }, null, 2)],
-      { type: 'application/json' }
-    )
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `radix_library_${stamp}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [entries])
-
-  // ── Entry CRUD ───────────────────────────────────────────────────────────────
-
-  const upsertEntry = useCallback((data) => {
-    if (data.id) {
-      setEntries(prev => prev.map(e => e.id === data.id ? data : e))
-    } else {
-      setEntries(prev => [...prev, { ...data, id: generateId(), isMastered: false }])
-    }
-  }, [])
-
-  const saveEntry = useCallback((data) => {
-    upsertEntry(data)
-    setEditingItem(null)
-    setCurrentView('library')
-  }, [upsertEntry])
-
-  const saveAndNavigate = useCallback((data, nextItem) => {
-    upsertEntry(data)
-    setEditingItem(nextItem)
-    // currentView stays 'editor'
-  }, [upsertEntry])
-
-  const deleteEntry = useCallback((id) => {
-    const usedByIds = usedByMap.get(id)
-    if (usedByIds?.length > 0) {
-      const names = usedByIds.map(uid => {
-        const e = entryMap.get(uid)
-        return e ? (e.keyword || e.primitiveKeywords?.[0] || e.character) : uid
-      }).join(', ')
-      alert(`Cannot delete: used as a component in — ${names}`)
-      return
-    }
-    setEntries(prev => prev.filter(e => e.id !== id))
-  }, [entryMap, usedByMap])
-
-  const toggleMastered = useCallback((id) => {
-    setEntries(prev => prev.map(e => e.id === id ? { ...e, isMastered: !e.isMastered } : e))
-  }, [])
-
-  // ── Navigation ───────────────────────────────────────────────────────────────
-
-  const goToEditor = useCallback((item = null) => {
-    setEditingItem(item)
-    setCurrentView('editor')
-  }, [])
-
-  const cancelEdit = useCallback(() => {
-    setEditingItem(null)
-    setCurrentView('library')
-  }, [])
-
-  // ── Global keyboard shortcuts ─────────────────────────────────────────────────
+  // Global shortcuts (work inside form fields too)
   useEffect(() => {
     function onKeyDown(e) {
-      const mod = e.ctrlKey || e.metaKey
-      if (!mod) return
-      // Ctrl+Shift+N — new entry (plain Ctrl/Cmd+N is intercepted by browsers)
-      if (e.shiftKey && e.key === 'N' && currentView !== 'editor') {
-        e.preventDefault(); goToEditor(null); return
+      if (!(e.ctrlKey || e.metaKey) || !hasLibrary) return
+      const k = e.key.toLowerCase()
+      if (e.shiftKey) {
+        const target = { l: 'library', g: 'graph', s: 'stories', r: 'review' }[k]
+        if (target) { e.preventDefault(); navigate(target); return }
+        if (k === 'n' && view !== 'editor') { e.preventDefault(); openEditor(null) }
+        return
       }
-      // Ctrl+Shift+L — go to library
-      if (e.shiftKey && e.key === 'L' && currentView !== 'library' && currentView !== 'welcome') {
-        e.preventDefault(); cancelEdit(); return
-      }
-      // Ctrl+Shift+R — go to review
-      if (e.shiftKey && e.key === 'R' && currentView !== 'review' && currentView !== 'welcome') {
-        e.preventDefault(); setCurrentView('review'); return
-      }
-      // Ctrl/Cmd+S — download library (EditorView handles its own Ctrl+S)
-      if (!e.shiftKey && e.key === 's' && currentView !== 'editor' && currentView !== 'welcome') {
-        e.preventDefault(); downloadDatabase(); return
-      }
+      // the editor handles its own Ctrl+S
+      if (k === 's' && view !== 'editor') { e.preventDefault(); lib.download() }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [currentView, goToEditor, cancelEdit, downloadDatabase])
+  }, [hasLibrary, view, navigate, openEditor, lib])
 
-  const isReview = currentView === 'review'
+  const pending = Object.keys(stories.proposals).length
+  const immersive = current === 'review'
 
   return (
-    <div className="app">
-      {!isReview && (
+    <div className={`app app-${current}`}>
+      {!immersive && (
         <Header
-          currentView={currentView}
-          hasLibrary={currentView !== 'welcome'}
-          onNavigate={setCurrentView}
-          onDownload={downloadDatabase}
-          onLoad={(file) => loadDatabase(file, { confirmReplace: true })}
-          entryCount={entries.length}
+          view={current}
+          hasLibrary={hasLibrary}
+          onNavigate={navigate}
+          onDownload={lib.download}
+          onLoad={loadFile}
+          onNew={() => openEditor(null)}
+          counts={{ entries: lib.entries?.length ?? 0, pending }}
+          theme={theme}
+          onCycleTheme={cycle}
         />
       )}
 
-      <main className={isReview ? 'main-review' : 'main'}>
-        {currentView === 'welcome' && (
-          <WelcomeView onLoad={loadDatabase} onCreate={createNewLibrary} onLoadExample={loadExampleLibrary} />
-        )}
-        {currentView === 'library' && (
-          <LibraryView
-            entries={entries}
-            entryMap={entryMap}
-            usedByMap={usedByMap}
-            onEdit={goToEditor}
-            onDelete={deleteEntry}
-            onToggleMastered={toggleMastered}
-            onNew={() => goToEditor(null)}
-            onReview={() => setCurrentView('review')}
+      <main className="main">
+        {current === 'welcome' && (
+          <WelcomeView
+            onLoad={loadFile}
+            onCreate={() => { lib.replaceAll([]); setView('library') }}
+            onLoadExample={() => { lib.replaceAll(exampleEntries); setView('library') }}
           />
         )}
-        {currentView === 'editor' && (
+        {current === 'library' && (
+          <LibraryView
+            entries={lib.entries}
+            entryMap={lib.entryMap}
+            onEdit={openEditor}
+            onDelete={lib.remove}
+            onToggleMastered={lib.toggleMastered}
+            onNew={() => openEditor(null)}
+            onShowInGraph={showInGraph}
+          />
+        )}
+        {current === 'graph' && (
+          <GraphView
+            entries={lib.entries}
+            entryMap={lib.entryMap}
+            usedByMap={lib.usedByMap}
+            onEdit={openEditor}
+            theme={resolved}
+            focusId={graphFocus}
+            onFocusHandled={() => setGraphFocus(null)}
+          />
+        )}
+        {current === 'stories' && (
+          <StoriesView
+            entries={lib.entries}
+            entryMap={lib.entryMap}
+            stories={stories}
+            onPatchEntry={lib.patch}
+          />
+        )}
+        {current === 'editor' && (
           <EditorView
-            key={editingItem?.id ?? 'new'}
-            item={editingItem}
-            entries={entries}
-            entryMap={entryMap}
+            key={editing?.id ?? 'new'}
+            item={editing}
+            entries={lib.entries}
+            entryMap={lib.entryMap}
             onSave={saveEntry}
-            onCancel={cancelEdit}
+            onCancel={closeEditor}
             onSaveAndNavigate={saveAndNavigate}
           />
         )}
-        {currentView === 'review' && (
+        {current === 'review' && (
           <ReviewView
-            entries={entries}
-            entryMap={entryMap}
-            onToggleMastered={toggleMastered}
-            onExit={() => setCurrentView('library')}
+            entries={lib.entries}
+            entryMap={lib.entryMap}
+            onToggleMastered={lib.toggleMastered}
+            onExit={() => setView('library')}
           />
         )}
       </main>

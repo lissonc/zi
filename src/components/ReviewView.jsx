@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
+import { entryType, entryDisplayName, storyToHtml, hasStory } from '../utils.js'
 
 function shuffle(arr) {
   const a = [...arr]
@@ -55,7 +55,7 @@ function ConfigScreen({ reviewable, onStart, onExit }) {
 
   return (
     <div className="review-config">
-      <button className="review-exit-top" onClick={onExit}>← Back to Library</button>
+      <button className="review-exit-top" onClick={onExit}>← Library</button>
       <div className="review-config-card">
         <h2 className="review-config-title">Configure Review Session</h2>
 
@@ -192,13 +192,13 @@ function FlipCard({ card, entryMap, cardIndex, total, mode, onSuccess, onFail, o
                 {components.map(c => (
                   <span key={c.id} className={`comp-tag comp-tag-${entryType(c)}`}>
                     {c.character && <span>{c.character}</span>}
-                    {c.primitiveKeywords?.length > 0 ? <>💠 {c.primitiveKeywords[0]}</> : entryDisplayName(c)}
+                    {c.primitiveKeywords?.[0] || entryDisplayName(c)}
                   </span>
                 ))}
               </div>
             )}
 
-            {card.story && (
+            {hasStory(card) && (
               <p
                 className="card-story"
                 dangerouslySetInnerHTML={{ __html: storyToHtml(card.story) }}

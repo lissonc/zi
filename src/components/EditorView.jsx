@@ -314,7 +314,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [mentionSearch, onCancel, prevEntry, nextEntry]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const typeLabel = { primitive: '💠 Primitive', character: 'Character', dual: 'Dual' }[derivedType]
+  const typeLabel = { primitive: 'Primitive', character: 'Character', dual: 'Dual' }[derivedType]
   const typeClass = { primitive: 'type-pill-primitive', character: 'type-pill-character', dual: 'type-pill-dual' }[derivedType]
 
   return (
@@ -374,11 +374,11 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
 
         {/* Primitive keywords */}
         <div className="form-group">
-          <label className="form-label">💠 Primitive Keywords</label>
+          <label className="form-label">Primitive Keywords</label>
           <div className="prim-kw-field">
             {primKwList.map((kw, i) => (
               <span key={i} className="prim-kw-chip">
-                💠 {kw}
+                {kw}
                 <button
                   type="button"
                   className="prim-kw-chip-remove"
@@ -396,7 +396,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
             />
           </div>
           <p className="form-hint">
-            The 💠 name(s) used when this entry appears as a building block in stories.
+            The name(s) used when this entry appears as a building block in stories.
             Type a name and press <kbd>,</kbd> or leave the field to add it as a chip.
             Leave blank if this character is never used as a component.
           </p>
@@ -500,7 +500,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
                     >
                       {e.character && <span className="comp-chip-glyph">{e.character}</span>}
                       <span>
-                        {e.primitiveKeywords?.length > 0 ? `💠 ${matchKw}` : matchKw}
+                        {e.primitiveKeywords?.length > 0 ? `${matchKw}` : matchKw}
                         {isAlias && (
                           <span className="mention-opt-alias"> → {canonical}</span>
                         )}
@@ -528,7 +528,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
                 placeholder="Search entries…"
               />
               <div className="component-picker">
-                {filteredCandidates.map(e => {
+                {filteredCandidates.slice(0, Math.max(60, componentIds.length + 40)).map(e => {
                   const t = entryType(e)
                   const selected = componentIds.includes(e.id)
                   return (
@@ -540,12 +540,15 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
                       title={e.primitiveKeywords?.join(', ') || e.keyword}
                     >
                       {e.character && <span className="comp-chip-glyph">{e.character}</span>}
-                      <span>{e.primitiveKeywords?.length > 0 ? <>💠 {e.primitiveKeywords[0]}</> : entryDisplayName(e)}</span>
+                      <span>{e.primitiveKeywords?.length > 0 ? <>{e.primitiveKeywords[0]}</> : entryDisplayName(e)}</span>
                     </button>
                   )
                 })}
                 {filteredCandidates.length === 0 && (
                   <p className="form-hint">No matching entries.</p>
+                )}
+                {filteredCandidates.length > Math.max(60, componentIds.length + 40) && (
+                  <p className="form-hint">Showing the first matches of {filteredCandidates.length}. Search to narrow down.</p>
                 )}
               </div>
             </>
@@ -556,7 +559,7 @@ export default function EditorView({ item, entries, entryMap, onSave, onCancel, 
               {componentIds
                 .map(id => entryMap.get(id))
                 .filter(Boolean)
-                .map(e => e.primitiveKeywords?.length > 0 ? `💠 ${e.primitiveKeywords[0]}` : entryDisplayName(e))
+                .map(e => e.primitiveKeywords?.length > 0 ? `${e.primitiveKeywords[0]}` : entryDisplayName(e))
                 .join(', ')}
             </p>
           )}
