@@ -703,7 +703,9 @@ export class GraphEngine {
     const c = this.canvas
     this.onDown = (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return
-      c.setPointerCapture?.(e.pointerId)
+      // capture can throw for a pointer the browser no longer tracks; the
+      // gesture still works without it
+      try { c.setPointerCapture(e.pointerId) } catch { /* ignore */ }
       const [cx, cy] = this.local(e)
       this.pointers.set(e.pointerId, { x: cx, y: cy })
       this.anim = null

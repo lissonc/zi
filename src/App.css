@@ -76,6 +76,10 @@
 :root[data-theme="dark"] { color-scheme: dark; }
 
 html, body, #root { height: 100%; }
+/* No page zoom on touch devices: `manipulation` drops double-tap zoom (the
+   viewport meta and a gesture handler in main.jsx cover pinch). The graph
+   canvas keeps its own pinch zoom via `touch-action: none`. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -486,6 +490,15 @@ code { background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
   .graph-panel ~ .graph-controls, .graph:has(.graph-panel) .graph-controls { display: none; }
   .card-character-display { font-size: 116px; }
   .card-keyword { font-size: 36px; }
+}
+
+/* iOS zooms the page when a focused field has text smaller than 16px. */
+@media (pointer: coarse) {
+  .input, .select, .search-input, .form-input, .count-input, .prim-kw-draft,
+  .graph-search .search-input { font-size: 16px; }
+  .form-input-char { font-size: 38px; }
+  .form-textarea { font-size: 17px; }
+  .proposal-edit { font-size: 19px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
