@@ -1,6 +1,7 @@
 import { useState, useMemo, memo, useDeferredValue, useRef, useEffect } from 'react'
 import { entryType, entryDisplayName, storyToHtml, hasStory, entryMeta } from '../utils.js'
 import { useKeyboard } from '../hooks/useKeyboard.js'
+import { componentIssue } from '../lib/graphAnalysis.js'
 import EntryChip from './EntryChip.jsx'
 
 const PAGE = 60
@@ -55,12 +56,12 @@ const EntryRow = memo(function EntryRow({ entry, entryMap, onEdit, onDelete, onT
   )
 })
 
-export default function LibraryView({ entries, entryMap, onEdit, onDelete, onToggleMastered, onNew, onShowInGraph }) {
+export default function LibraryView({ entries, entryMap, onEdit, onDelete, onToggleMastered, onNew, onShowInGraph, onCheckComponents, presetLesson }) {
   const [search, setSearch] = useState('')
   const [type, setType] = useState('all')
   const [story, setStory] = useState('all')       // all | with | without
   const [mastered, setMastered] = useState('all') // all | yes | no
-  const [lesson, setLesson] = useState('')
+  const [lesson, setLesson] = useState(presetLesson != null ? String(presetLesson) : '')
   const [sort, setSort] = useState('order')       // order | strokes | name
   const [shown, setShown] = useState(PAGE)
   const searchRef = useRef(null)
@@ -79,6 +80,12 @@ export default function LibraryView({ entries, entryMap, onEdit, onDelete, onTog
     }
     return c
   }, [entries])
+
+  const toCheck = useMemo(() => {
+    let n = 0
+    for (const e of entries) if (componentIssue(e, entryMap)) n++
+    return n
+  }, [entries, entryMap])
 
   const q = useDeferredValue(search.trim().toLowerCase())
 
@@ -137,7 +144,14 @@ export default function LibraryView({ entries, entryMap, onEdit, onDelete, onTog
             {counts.reviewable.toLocaleString()} characters · {counts.withStory.toLocaleString()} with a story · {counts.mastered.toLocaleString()} mastered
           </p>
         </div>
-        <button className="btn btn-primary" onClick={onNew}>New entry</button>
+        <div className="page-actions">
+          {toCheck > 0 && onCheckComponents && (
+            <button className="btn" onClick={onCheckComponents} title="Characters whose components look wrong">
+              Check components <span className="seg-count">{toCheck.toLocaleString()}</span>
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={onNew}>New entry</button>
+        </div>
       </div>
 
       <div className="searchbar">

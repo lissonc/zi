@@ -18,6 +18,7 @@ export default function Header({ view, hasLibrary, onNavigate, onDownload, onLoa
     ['graph', 'Graph', null, 'Ctrl+Shift+G'],
     ['stories', 'Stories', counts.pending || null, 'Ctrl+Shift+S'],
     ['review', 'Review', null, 'Ctrl+Shift+R'],
+    ['progress', 'Progress', null, null],
   ]
 
   return (
@@ -34,7 +35,7 @@ export default function Header({ view, hasLibrary, onNavigate, onDownload, onLoa
               key={id}
               className={`tab${view === id ? ' active' : ''}`}
               onClick={() => onNavigate(id)}
-              title={`${label} (${key})`}
+              title={key ? `${label} (${key})` : label}
               aria-current={view === id ? 'page' : undefined}
             >
               {label}

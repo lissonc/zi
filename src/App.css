@@ -76,6 +76,10 @@
 :root[data-theme="dark"] { color-scheme: dark; }
 
 html, body, #root { height: 100%; }
+/* No page zoom on touch devices: `manipulation` drops double-tap zoom (the
+   viewport meta and a gesture handler in main.jsx cover pinch). The graph
+   canvas keeps its own pinch zoom via `touch-action: none`. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -462,6 +466,88 @@ code { background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
 .summary-item.fail .summary-mark { color: var(--bad); }
 .summary-actions { display: flex; gap: 10px; }
 
+/* ── Graph: scope, explore panel ─────────────────────────────────────────────── */
+.graph-top { flex-wrap: wrap; right: 16px; pointer-events: none; }
+.graph-top > * { pointer-events: auto; }
+.graph-top .btn { box-shadow: var(--shadow); }
+.scope-pill {
+  display: inline-flex; align-items: center; gap: 12px; padding: 5px 6px 5px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  box-shadow: var(--shadow); font-size: 13px; max-width: 100%;
+}
+.scope-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-close { border: 0; border-radius: 999px; padding: 4px 12px; background: var(--accent); color: var(--on-accent); font-size: 12.5px; white-space: nowrap; }
+.graph-explore {
+  position: absolute; top: 62px; left: 16px; width: 300px; max-height: calc(100% - 250px); overflow-y: auto;
+  padding: 14px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow); display: grid; gap: 10px; align-content: start; z-index: 5;
+}
+.explore-tabs { display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--sunken); border-radius: 999px; position: relative; margin-right: 34px; }
+.explore-tabs .seg-btn { flex: 1; }
+.explore-tabs .panel-close { right: -36px; top: 1px; }
+.explore-lead { font-size: 14px; }
+.family-list, .group-list { list-style: none; display: grid; gap: 1px; }
+.family-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 8px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 14px; }
+.family-row:hover { background: var(--sunken); }
+.family-glyph { font-family: var(--cjk); font-size: 20px; width: 26px; text-align: center; }
+.family-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.family-count { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.group-row { padding: 8px 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.group-size { color: var(--faint); font-size: 12px; }
+.panel-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── Component check ─────────────────────────────────────────────────────────── */
+.page-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.check > .link-btn { margin-bottom: 14px; }
+.check-intro { max-width: 68ch; margin-bottom: 16px; }
+.check-row { display: grid; grid-template-columns: 72px 1fr auto; gap: 4px 18px; align-items: start; padding: 16px 0; border-top: 1px solid var(--line); }
+.check-row:first-child { border-top: 0; }
+.check-issue { font-size: 13px; margin: 2px 0 8px; }
+.check-none, .check-few, .check-many { color: var(--bad); }
+.check-ok { color: var(--good); margin-bottom: 0; }
+.check-done { opacity: 0.6; align-items: center; }
+.check-done .entry-glyph { font-size: 30px; }
+.check-comps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip-removable { display: inline-flex; align-items: center; }
+.chip-removable .chip { border-radius: 999px 0 0 999px; padding-right: 6px; }
+.chip-x { border: 0; border-radius: 0 999px 999px 0; background: var(--sunken); color: var(--muted); font-size: 11px; padding: 0 8px 0 6px; align-self: stretch; }
+.chip-x:hover { color: var(--bad); }
+.check-add { position: relative; }
+.check-add .input { width: 170px; padding: 3px 10px; border-radius: 999px; font-size: 13px; }
+.check-add .menu { width: 240px; right: auto; }
+
+/* ── Progress ────────────────────────────────────────────────────────────────── */
+.totals { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 30px; }
+.total { display: grid; gap: 4px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.total-num { font-family: var(--serif); font-size: 34px; line-height: 1.1; }
+.total-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.bar { display: inline-block; vertical-align: middle; width: 100%; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: 3px; }
+.bar-story { background: var(--character); }
+.bar-mastered { background: var(--star); }
+.lessons { width: 100%; border-collapse: collapse; font-size: 14px; }
+.lessons th, .lessons td { padding: 7px 10px 7px 0; border-top: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.lessons thead th { border-top: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--faint); }
+.lessons tbody th { font-weight: 500; white-space: nowrap; width: 110px; }
+.lessons .num { text-align: right; width: 90px; font-variant-numeric: tabular-nums; padding-right: 24px; }
+.lessons td .bar { width: calc(100% - 44px); }
+.bar-num { display: inline-block; width: 38px; text-align: right; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.lessons .is-done { color: var(--muted); }
+.lessons .is-current th { font-weight: 700; }
+.tag { margin-left: 8px; padding: 0 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 600; }
+
+/* ── Review additions, swipe ─────────────────────────────────────────────────── */
+.preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.check-label { margin-top: 10px; }
+.check-label input { accent-color: var(--ink); }
+.repeat-note { color: var(--faint); }
+.card-again { justify-self: center; padding: 1px 10px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-size: 12px; font-weight: 600; }
+.flip-card, .proposal { touch-action: pan-y; }
+.flip-card.lean-right, .proposal.lean-right .proposal-story { box-shadow: 0 0 0 2px var(--good); }
+.flip-card.lean-left, .proposal.lean-left .proposal-story { box-shadow: 0 0 0 2px var(--bad); }
+.flip-card { border-radius: var(--radius-lg); padding: 10px 0 18px; }
+.swipe-hint { display: none; color: var(--faint); font-size: 12.5px; }
+
 /* ── Small screens ───────────────────────────────────────────────────────────── */
 @media (max-width: 760px) {
   .header { padding: 0 10px; gap: 6px; }
@@ -486,6 +572,64 @@ code { background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
   .graph-panel ~ .graph-controls, .graph:has(.graph-panel) .graph-controls { display: none; }
   .card-character-display { font-size: 116px; }
   .card-keyword { font-size: 36px; }
+
+  /* tabs move to a bar at the bottom, within thumb reach. The header must not
+     blur its backdrop here: that would make it the containing block for the
+     fixed bar and pin the bar to the header instead of the screen. */
+  .header { backdrop-filter: none; background: var(--bg); }
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; margin: 0; gap: 0;
+    justify-content: space-around; padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+  }
+  .tab { flex: 1; justify-content: center; min-height: 48px; padding: 6px 2px; border-radius: 10px; font-size: 12.5px; }
+  .header-tools { margin-left: auto; }
+  .main { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  .app-review .main { padding-bottom: 0; }
+  .graph { height: calc(100dvh - 56px - 58px - env(safe-area-inset-bottom)); }
+  .graph-top { left: 10px; right: 10px; top: 10px; gap: 8px; }
+  .graph-search { flex: 1; width: auto; min-width: 140px; }
+  .scope-pill { width: 100%; justify-content: space-between; }
+  .graph-explore { top: 58px; left: 10px; right: 10px; width: auto; max-height: 55%; }
+  .graph:has(.graph-explore) .graph-controls { display: none; }
+  .totals { grid-template-columns: 1fr; }
+  .lessons tbody th { width: 76px; }
+  .lessons .num { width: 54px; padding-right: 12px; }
+  .check-row { grid-template-columns: 54px 1fr; }
+  .check-row > .btn, .check-row > .link-btn { grid-column: 2; justify-self: start; }
+  .page-head { flex-wrap: wrap; }
+}
+
+/* fingers need bigger targets than a mouse pointer */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 38px; padding-left: 12px; padding-right: 12px; }
+  .icon-btn { width: 42px; height: 42px; font-size: 18px; }
+  .entry-actions { opacity: 1; }
+  .entry.is-mastered .icon-btn:not(.on) { opacity: 1; }
+  .seg-btn { padding: 9px 13px; }
+  .chip-btn { padding: 4px 12px 4px 10px; }
+  .chip-x { padding: 6px 12px 6px 8px; font-size: 13px; }
+  .link-btn { padding: 8px 0; }
+  .tool { min-width: 42px; min-height: 42px; justify-content: center; }
+  .menu-item, .family-row { padding-top: 10px; padding-bottom: 10px; }
+  .reason { padding: 9px 14px; }
+  .radio-label { min-height: 36px; }
+  .panel-close { width: 40px; height: 40px; }
+  .ctrl input[type="range"] { height: 28px; }
+  .swipe-hint { display: block; margin-top: 8px; }
+  .decide-more .swipe-hint { margin-top: 4px; }
+  .btn kbd, .reason kbd, .decide-more kbd { display: none; }
+}
+
+/* iOS zooms the page when a focused field has text smaller than 16px. */
+@media (pointer: coarse) {
+  .input, .select, .search-input, .form-input, .count-input, .prim-kw-draft,
+  .graph-search .search-input { font-size: 16px; }
+  .form-input-char { font-size: 38px; }
+  .form-textarea { font-size: 17px; }
+  .proposal-edit { font-size: 19px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

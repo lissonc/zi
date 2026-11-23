@@ -3,6 +3,7 @@ import { entryDisplayName, storyToHtml, hasStory, entryMeta, downloadJson, times
 import {
   REJECT_REASONS, buildRequest, parseProposals, entriesNeedingStory, buildNameIndex, componentsFromStory,
 } from '../lib/stories.js'
+import { useSwipe } from '../hooks/useSwipe.js'
 import EntryChip from './EntryChip.jsx'
 
 // ── Overview: request → import → review ───────────────────────────────────────
@@ -220,6 +221,13 @@ function Review({ entries, entryMap, stories, onPatchEntry, onExit }) {
     setPos(u.pos)
   }, [stories, onPatchEntry])
 
+  // swipe right approves, swipe left opens the reject panel
+  const swipe = useSwipe({
+    onRight: () => approve(),
+    onLeft: () => setMode('reject'),
+    enabled: mode === 'read' && pos < queue.length,
+  })
+
   useEffect(() => { if (mode === 'reject') noteRef.current?.focus({ preventScroll: true }) }, [mode])
   useEffect(() => {
     if (mode === 'edit') {
@@ -311,7 +319,7 @@ function Review({ entries, entryMap, stories, onPatchEntry, onExit }) {
       </div>
       <div className="meter" aria-hidden="true"><div className="meter-fill" style={{ width: `${(pos / queue.length) * 100}%` }} /></div>
 
-      <article className="proposal">
+      <article className={`proposal${swipe.lean ? ` lean-${swipe.lean}` : ''}`} style={swipe.style} {...swipe.handlers}>
         <div className="proposal-glyph">{entry.character}</div>
         <h1 className="proposal-keyword">{entryDisplayName(entry)}</h1>
         <p className="proposal-meta">
@@ -357,7 +365,10 @@ function Review({ entries, entryMap, stories, onPatchEntry, onExit }) {
         </div>
       )}
       {mode === 'read' && (
-        <p className="decide-more"><button className="link-btn" onClick={skip}>Decide later <kbd>S</kbd></button></p>
+        <p className="decide-more">
+          <button className="link-btn" onClick={skip}>Decide later <kbd>S</kbd></button>
+          <span className="swipe-hint">Swipe right to approve, left to reject</span>
+        </p>
       )}
 
       {mode === 'edit' && (
