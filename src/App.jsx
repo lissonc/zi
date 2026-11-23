@@ -6,6 +6,8 @@ import GraphView from './components/GraphView.jsx'
 import StoriesView from './components/StoriesView.jsx'
 import EditorView from './components/EditorView.jsx'
 import ReviewView from './components/ReviewView.jsx'
+import CheckView from './components/CheckView.jsx'
+import ProgressView from './components/ProgressView.jsx'
 import { useLibrary } from './store/useLibrary.js'
 import { useStories } from './store/useStories.js'
 import { useTheme } from './store/useTheme.js'
@@ -21,6 +23,7 @@ export default function App() {
   const [editing, setEditing] = useState(null)   // entry being edited, or null for a new one
   const [returnTo, setReturnTo] = useState('library')
   const [graphFocus, setGraphFocus] = useState(null)
+  const [libraryLesson, setLibraryLesson] = useState(null) // lesson to open the library on
 
   const current = hasLibrary ? view : 'welcome'
 
@@ -39,10 +42,12 @@ export default function App() {
   const saveAndNavigate = useCallback((data, nextItem) => { lib.upsert(data); setEditing(nextItem) }, [lib])
 
   const showInGraph = useCallback((entry) => { setGraphFocus(entry.id); setView('graph') }, [])
+  const openLesson = useCallback((lesson) => { setLibraryLesson(lesson); setView('library') }, [])
 
   const navigate = useCallback((v) => {
     if (v === 'welcome') return
     setEditing(null)
+    setLibraryLesson(null)
     setView(v)
   }, [])
 
@@ -77,7 +82,7 @@ export default function App() {
     <div className={`app app-${current}`}>
       {!immersive && (
         <Header
-          view={current}
+          view={current === 'check' ? 'library' : current}
           hasLibrary={hasLibrary}
           onNavigate={navigate}
           onDownload={lib.download}
@@ -99,6 +104,9 @@ export default function App() {
         )}
         {current === 'library' && (
           <LibraryView
+            key={libraryLesson ?? 'all'}
+            presetLesson={libraryLesson}
+            onCheckComponents={() => setView('check')}
             entries={lib.entries}
             entryMap={lib.entryMap}
             onEdit={openEditor}
@@ -114,6 +122,7 @@ export default function App() {
             entryMap={lib.entryMap}
             usedByMap={lib.usedByMap}
             onEdit={openEditor}
+            onCheckComponents={() => setView('check')}
             theme={resolved}
             focusId={graphFocus}
             onFocusHandled={() => setGraphFocus(null)}
@@ -142,9 +151,21 @@ export default function App() {
           <ReviewView
             entries={lib.entries}
             entryMap={lib.entryMap}
-            onToggleMastered={lib.toggleMastered}
+            onSetMastered={lib.setMastered}
             onExit={() => setView('library')}
           />
+        )}
+        {current === 'check' && (
+          <CheckView
+            entries={lib.entries}
+            entryMap={lib.entryMap}
+            onPatch={lib.patch}
+            onEdit={openEditor}
+            onBack={() => setView('library')}
+          />
+        )}
+        {current === 'progress' && (
+          <ProgressView entries={lib.entries} onOpenLesson={openLesson} />
         )}
       </main>
     </div>

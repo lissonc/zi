@@ -103,5 +103,9 @@ export function useLibrary() {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, isMastered: !e.isMastered } : e))
   }, [])
 
-  return { entries, entryMap, usedByMap, loadFile, replaceAll, download, upsert, patch, remove, toggleMastered }
+  const setMastered = useCallback((id, value) => {
+    setEntries(prev => prev.map(e => e.id === id && Boolean(e.isMastered) !== value ? { ...e, isMastered: value } : e))
+  }, [])
+
+  return { entries, entryMap, usedByMap, loadFile, replaceAll, download, upsert, patch, remove, toggleMastered, setMastered }
 }

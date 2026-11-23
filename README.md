@@ -77,9 +77,14 @@ Open the **Review** view and configure a session:
 - **Random N** — a fixed-size batch drawn at random from the pool (default 20)
 - **Infinite loop** — cycles through the pool indefinitely, reshuffling after each pass
 
-On each card you see the keyword. Recall the story and the character, then press
-**Show Character** (or `Space`) to reveal. Mark **Got it** (`Y`) or **Missed** (`N`).
-Marking *Got it* sets the entry as mastered.
+- **Lessons** — the next lesson you have not finished, everything up to it, or a range
+- **Direction** — keyword → character, or character → keyword
+- **Bring missed cards back** — a missed card returns a few cards later, until you get it
+
+On each card recall the other side, then reveal it (`Space`, or tap the card) and
+mark **Got it** (`Y`) or **Missed** (`N`); on a touch screen swipe right or left.
+A card you get right the first time is marked as mastered; a card you miss loses
+the mark.
 
 There is no spaced-repetition scheduler. A sufficiently vivid story makes an entry
 immediately reliable; the review session is for finding which stories need
@@ -118,8 +123,9 @@ stories are being confused. Change the imagery entirely rather than adding words
 | `+` / `-` | Zoom in / out |
 | `F` | Fit everything |
 | `K` | Keywords instead of characters |
+| `L` | Arrange in rows by level |
 | `E` | Edit the selected entry |
-| `Escape` | Deselect |
+| `Escape` | Close the panel, deselect, or leave a family / chain |
 
 ### Stories — reviewing proposals
 
@@ -146,7 +152,7 @@ stories are being confused. Change the imagery entirely rather than adding words
 | Shortcut | Action |
 |---|---|
 | `Space` or `Enter` | Reveal character |
-| `Y` or `1` / `N` or `2` | Got it / Missed |
+| `Y`, `1` or `→` / `N`, `2` or `←` | Got it / Missed |
 | `Escape` | End session |
 
 ---
@@ -176,11 +182,13 @@ src/
 │   ├── useStories.js        # pending proposals and decision history
 │   └── useTheme.js          # system / light / dark
 ├── lib/
-│   └── stories.js           # request export, proposal import, link → component
+│   ├── stories.js           # request export, proposal import, link → component
+│   └── graphAnalysis.js     # levels, families, build chains, groups, component check
 ├── graph/
 │   └── engine.js            # simulation + canvas renderer (no React)
 ├── hooks/
-│   └── useKeyboard.js
+│   ├── useKeyboard.js
+│   └── useSwipe.js         # swipe to decide on touch screens
 └── components/
     ├── Header.jsx           # tabs, load/save, theme toggle
     ├── WelcomeView.jsx
@@ -189,6 +197,8 @@ src/
     ├── StoriesView.jsx      # request → import → one-by-one review
     ├── EditorView.jsx
     ├── ReviewView.jsx       # flash cards
+    ├── CheckView.jsx        # characters whose components look wrong
+    ├── ProgressView.jsx     # stories and mastery per lesson
     └── EntryChip.jsx
 docs/story-guidelines.md     # what makes a good story
 tools/stories/README.md      # request / proposals file formats
@@ -217,6 +227,7 @@ interface Entry {
   isMastered: boolean
   sourcePage?: number         // optional: page in your textbook
   sourceHasStory?: boolean    // optional: whether the textbook gives a story there
+  componentsChecked?: boolean // optional: set by “Looks right” in Check components
 }
 ```
 
@@ -267,6 +278,35 @@ What keeps it smooth with thousands of entries:
 Controls: drag the background to pan, scroll or pinch to zoom, drag a node to
 move it, click a node for its story, components and uses. **Up to lesson**
 limits the graph to what you have reached so far.
+
+Ways to cut the graph down to something readable:
+
+- **Levels** arranges everything in rows: entries built from nothing at the
+  top, then entries built from those, and so on.
+- **Show family** (on a selected entry, or from **Explore → Families**) shows
+  only that component and everything built from it.
+- **Show build chain** shows one character with everything it is built from,
+  down to the simplest parts, one row per level.
+- **Explore → Connections** lists the groups of entries that are not linked to
+  the rest. For characters this usually means components are missing.
+
+---
+
+## Check components
+
+**Library → Check components** lists characters whose components look wrong,
+judged by stroke counts: none listed, too few strokes covered, or more strokes
+than the character has. Add or remove components in place, or mark a character
+“Looks right” to take it off the list (a component used twice, like 木 in 森,
+is flagged too).
+
+---
+
+## Progress
+
+The **Progress** view shows, per lesson, how many characters have a story and
+how many are mastered, and marks the next lesson to work on. Click a lesson to
+open it in the library.
 
 ---
 

@@ -60,6 +60,7 @@ export class GraphEngine {
     this.cursor = new Int32Array(0)
 
     this.alpha = 0
+    this.ty = null
     this.panX = 0
     this.panY = 0
     this.zoom = 1
@@ -88,8 +89,14 @@ export class GraphEngine {
 
   // ── Data ────────────────────────────────────────────────────────────────────
 
-  setData(entries) {
-    const oldIndex = this.index
+  /**
+   * @param entries  the nodes to show
+   * @param opts.levels  Map id → level (1 = top row). Nodes are held in rows.
+   * @param opts.reset   forget earlier positions and lay out from scratch
+   */
+  setData(entries, opts = {}) {
+    const levels = opts.levels || null
+    const oldIndex = opts.reset ? new Map() : this.index
     const ox = this.x, oy = this.y
     const n = entries.length
     const ids = new Array(n)
@@ -113,6 +120,28 @@ export class GraphEngine {
     // Placement: keep old positions; otherwise start next to the components
     // (entries come in learning order, so components are usually placed
     // already). Roots go on a golden-angle spiral.
+    // Row layout: each level gets a band; nodes are pulled to their band's
+    // centre line and spread sideways by the usual forces.
+    let ty = null
+    if (levels) {
+      const perLevel = new Map()
+      for (let i = 0; i < n; i++) {
+        const l = levels.get(ids[i]) || 1
+        perLevel.set(l, (perLevel.get(l) || 0) + 1)
+      }
+      const widest = Math.max(...perLevel.values())
+      const gap = Math.max(130, Math.min(420, 90 + Math.sqrt(widest) * 13))
+      const maxLevel = Math.max(...perLevel.keys())
+      ty = new Float32Array(n)
+      for (let i = 0; i < n; i++) ty[i] = ((levels.get(ids[i]) || 1) - (maxLevel + 1) / 2) * gap
+      this.levelGap = gap
+      // small graphs: exact rows. Large ones: a band per level, thick enough
+      // to hold its nodes, never touching the next band.
+      this.levelHalf = widest > 40 ? gap * 0.4 : 0
+      this.levelCounts = perLevel
+    }
+    this.ty = ty
+
     const placed = new Uint8Array(n)
     let roots = 0, fresh = 0
     for (let i = 0; i < n; i++) {
@@ -123,6 +152,13 @@ export class GraphEngine {
     for (let i = 0; i < n; i++) {
       if (placed[i]) continue
       fresh++
+      if (ty) {
+        const count = this.levelCounts.get(levels.get(ids[i]) || 1)
+        x[i] = (Math.random() - 0.5) * count * 16
+        y[i] = ty[i] + (Math.random() - 0.5) * 2 * (this.levelHalf || 0)
+        placed[i] = 1
+        continue
+      }
       let sx = 0, sy = 0, c = 0
       for (const cid of entries[i].componentIds || []) {
         const j = index.get(cid)
@@ -157,8 +193,9 @@ export class GraphEngine {
     this.atlas = null
     this.atlasCount = 0
     if (fresh > 0) this.alpha = fresh > n * 0.5 ? 1 : Math.max(this.alpha, 0.3)
+    if (opts.reset || opts.relayout) this.alpha = 1
     this.start()
-    return fresh === n
+    return fresh === n || Boolean(opts.reset || opts.relayout)
   }
 
   /** Update entry objects (names, stories) without touching the layout. */
@@ -224,6 +261,7 @@ export class GraphEngine {
     // Springs along component edges; the lower-degree end moves more, so hubs
     // (口, 一, 木 …) stay put instead of being dragged around by their leaves.
     const { es, et, m, deg, r } = this
+    const rowsOn = Boolean(this.ty)
     for (let e = 0; e < m; e++) {
       const a = es[e], b = et[e]
       let dx = x[b] - x[a], dy = y[b] - y[a]
@@ -232,22 +270,40 @@ export class GraphEngine {
       const da = deg[a], db = deg[b]
       const strength = 0.9 / Math.min(da, db)
       const f = ((d - rest) / d) * alpha * strength
-      dx *= f; dy *= f
+      dx *= f
+      // in row layouts links only line nodes up sideways; pulling them
+      // towards the next row would press everything against the band edge
+      dy = rowsOn ? 0 : dy * f
       const bias = da / (da + db)
       vx[b] -= dx * bias; vy[b] -= dy * bias
       vx[a] += dx * (1 - bias); vy[a] += dy * (1 - bias)
     }
 
     const g = GRAVITY * alpha
+    const ty = this.ty
+    const half = this.levelHalf || 0
     const drag = this.dragNode
     for (let i = 0; i < n; i++) {
       if (i === drag) { vx[i] = 0; vy[i] = 0; continue }
-      let ax = (vx[i] - x[i] * g) * DAMPING
-      let ay = (vy[i] - y[i] * g) * DAMPING
+      let ax, ay
+      if (ty) {
+        // strong pull to the row, weak pull to the centre: rows stay flat
+        // and are free to spread sideways
+        ax = (vx[i] - x[i] * g * 0.3) * DAMPING
+        ay = (vy[i] + (ty[i] - y[i]) * 0.2 * alpha) * DAMPING
+      } else {
+        ax = (vx[i] - x[i] * g) * DAMPING
+        ay = (vy[i] - y[i] * g) * DAMPING
+      }
       const sp = ax * ax + ay * ay
       if (sp > MAX_V * MAX_V) { const s = MAX_V / Math.sqrt(sp); ax *= s; ay *= s }
       vx[i] = ax; vy[i] = ay
       x[i] += ax; y[i] += ay
+      if (ty) {
+        // hard limit: a node never leaves its level's band
+        const lo = ty[i] - half, hi = ty[i] + half
+        if (y[i] < lo) { y[i] = lo; vy[i] = 0 } else if (y[i] > hi) { y[i] = hi; vy[i] = 0 }
+      }
     }
     this.alpha *= ALPHA_DECAY
   }
@@ -342,11 +398,12 @@ export class GraphEngine {
     if (!this.n) return
     const b = this.bounds()
     const pad = 40
+    const top = 76 // the search bar and scope pill overlay the top edge
     const zoom = Math.max(MIN_ZOOM, Math.min(2.5,
       (this.cssW - pad * 2) / Math.max(b.maxX - b.minX, 1),
-      (this.cssH - pad * 2) / Math.max(b.maxY - b.minY, 1)))
+      (this.cssH - pad - top) / Math.max(b.maxY - b.minY, 1)))
     const panX = this.cssW / 2 - ((b.minX + b.maxX) / 2) * zoom
-    const panY = this.cssH / 2 - ((b.minY + b.maxY) / 2) * zoom
+    const panY = top + (this.cssH - pad - top) / 2 - ((b.minY + b.maxY) / 2) * zoom
     this.moveTo(panX, panY, zoom, animate)
   }
 
@@ -639,7 +696,8 @@ export class GraphEngine {
     ctx.textBaseline = 'top'
     const fs = 11 * px
     ctx.font = `${fs}px ${UI_FONT}`
-    const labelAll = this.labelMode === 'keyword' ? zoom * scale > 0.75 : zoom * scale > 1.9
+    // small graphs (a build chain, a small family) are always labelled
+    const labelAll = n <= 60 || (this.labelMode === 'keyword' ? zoom * scale > 0.75 : zoom * scale > 1.9)
     if (labelAll || active) {
       let drawn = 0
       for (let p = 0; p < vc && drawn < 500; p++) {
