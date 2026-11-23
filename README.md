@@ -54,20 +54,42 @@ The story should:
 
 Brevity is a virtue. A single vivid image beats a paragraph.
 
-### 4. Review
+### 4. Get story proposals and approve them one by one
+
+The **Stories** view runs a loop that never puts a story in your library unseen:
+
+1. **Ask for a batch.** Download a request file for the characters that still
+   need a story (by lesson, by batch size, or only the ones you rejected).
+2. **Have the stories written.** Give the file to Claude Code in this
+   repository. It follows [`docs/story-guidelines.md`](docs/story-guidelines.md)
+   and returns a proposals file.
+3. **Import and review.** Each proposal is shown alone with its character and
+   components. Approve it, edit it and approve, or reject it with an optional
+   reason. Rejections and approvals are carried into the next request, so later
+   batches follow your taste.
+
+File formats and details: [`tools/stories/README.md`](tools/stories/README.md).
+
+### 5. Review
 
 Open the **Review** view and configure a session:
 
-- **Random N** — a fixed-size batch drawn at random from the pool (default 20; adjust the number)
+- **Random N** — a fixed-size batch drawn at random from the pool (default 20)
 - **Infinite loop** — cycles through the pool indefinitely, reshuffling after each pass
 
-On each card you see the keyword. Recall the story and the character, then press **Show Character** (or `Space`) to reveal. Mark **Got it** (`Y`) or **Missed** (`N`). Marking *Got it* sets the entry as mastered.
+On each card you see the keyword. Recall the story and the character, then press
+**Show Character** (or `Space`) to reveal. Mark **Got it** (`Y`) or **Missed** (`N`).
+Marking *Got it* sets the entry as mastered.
 
-There is no spaced-repetition scheduler. A sufficiently vivid story makes an entry immediately reliable; the review session is for finding which stories need strengthening, not for managing a queue.
+There is no spaced-repetition scheduler. A sufficiently vivid story makes an entry
+immediately reliable; the review session is for finding which stories need
+strengthening, not for managing a queue.
 
-### 5. Strengthen weak entries
+### 6. Strengthen weak entries
 
-When a card is missed, return to the editor and rewrite the story. A missed card almost always means the story lacked a strong enough visual hook, or two similar stories are being confused. Change the imagery entirely rather than adding words.
+When a card is missed, return to the editor and rewrite the story. A missed card
+almost always means the story lacked a strong enough visual hook, or two similar
+stories are being confused. Change the imagery entirely rather than adding words.
 
 ---
 
@@ -77,9 +99,8 @@ When a card is missed, return to the editor and rewrite the story. A missed card
 
 | Shortcut | Action |
 |---|---|
+| `Ctrl+Shift+L` / `G` / `S` / `R` | Library / Graph / Stories / Review |
 | `Ctrl+Shift+N` | New entry |
-| `Ctrl+Shift+L` | Go to Library |
-| `Ctrl+Shift+R` | Go to Review |
 | `Ctrl+S` / `Cmd+S` | Download library |
 
 ### Library
@@ -89,51 +110,44 @@ When a card is missed, return to the editor and rewrite the story. A missed card
 | `/` | Focus the search box |
 | `Escape` | Clear search and blur |
 
-### Editor
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+S` / `Cmd+S` | Save entry |
-| `Ctrl+Enter` | Save entry |
-| `Escape` | Cancel (when autocomplete is closed) |
-| `Alt+←` | Previous entry |
-| `Alt+→` | Next entry |
-
-Inside the story field, `[[` triggers the autocomplete dropdown:
-
-| Key | Action |
-|---|---|
-| `↑` / `↓` | Navigate suggestions |
-| `Enter` or `Tab` | Insert mention |
-| `Escape` | Close dropdown |
-
-### Review — flip card
-
-| Shortcut | Action |
-|---|---|
-| `Space` or `Enter` | Reveal character |
-| `Y` or `1` | Got it |
-| `N` or `2` | Missed |
-| `Escape` | End session |
-
-### Review — config & summary
-
-| Shortcut | Action |
-|---|---|
-| `Enter` | Start session / New session |
-| `Escape` | Back to Library |
-
 ### Graph
 
 | Shortcut | Action |
 |---|---|
-| `+` / `=` | Zoom in |
-| `-` | Zoom out |
-| `F` | Fit all nodes |
-| `C` | Toggle circles |
-| `K` | Toggle keywords |
-| `E` | Edit selected node |
-| `Escape` | Deselect node |
+| `/` | Find a character and jump to it |
+| `+` / `-` | Zoom in / out |
+| `F` | Fit everything |
+| `K` | Keywords instead of characters |
+| `E` | Edit the selected entry |
+| `Escape` | Deselect |
+
+### Stories — reviewing proposals
+
+| Shortcut | Action |
+|---|---|
+| `A` or `Enter` | Approve |
+| `E` | Edit, then `Ctrl+Enter` to approve the edited text |
+| `R` | Reject; `1`–`6` toggle reasons, `Enter` confirms |
+| `S` or `→` | Decide later |
+| `Z` or `←` | Undo the last decision |
+| `Escape` | Cancel / leave the review |
+
+### Editor
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+S` / `Ctrl+Enter` | Save entry |
+| `Escape` | Cancel (when autocomplete is closed) |
+| `Alt+←` / `Alt+→` | Previous / next entry |
+| `[[` in the story field | Link a component (`↑` `↓` to choose, `Enter` or `Tab` to insert) |
+
+### Review — flash cards
+
+| Shortcut | Action |
+|---|---|
+| `Space` or `Enter` | Reveal character |
+| `Y` or `1` / `N` or `2` | Got it / Missed |
+| `Escape` | End session |
 
 ---
 
@@ -143,142 +157,132 @@ Inside the story field, `[[` triggers the autocomplete dropdown:
 |---|---|---|
 | UI framework | **React 18** | Functional components, hooks only |
 | Build tool | **Vite 5** | Dev server + production bundler |
-| Styling | **Plain CSS** (single file) | CSS custom properties for theming; no framework |
-| Persistence | **Browser `localStorage`** + **JSON file export/import** | No server, no database |
-| Runtime | Any modern browser | Zero backend required |
+| Styling | **Plain CSS** (`src/App.css`) | Custom properties; light and dark theme, following the system unless set by hand |
+| Graph | **Canvas 2D**, own engine | No graph library |
+| Persistence | **Browser `localStorage`** + **JSON files** | No server, no database |
 
 ---
 
 ## Project Structure
 
 ```
-/
-├── index.html                  # Vite entry point
-├── vite.config.js
-├── package.json
-├── README.md
-├── src/
-│   ├── main.jsx                # React root mount
-│   ├── App.jsx                 # Top-level state, routing, all CRUD actions
-│   ├── App.css                 # Global styles (dark theme, CSS variables)
-│   ├── utils.js                # Shared helpers: entryType, entryDisplayName, migrateData
-│   ├── hooks/
-│   │   └── useKeyboard.js      # Shared keydown hook (skips inputs/textareas)
-│   └── components/
-│       ├── Header.jsx          # Top bar: nav, ↓ Save, ↑ Load
-│       ├── WelcomeView.jsx     # Initial screen: upload or create new library
-│       ├── LibraryView.jsx     # Searchable/filterable list + graph view toggle
-│       ├── GraphView.jsx       # Force-directed canvas graph of character relationships
-│       ├── EditorView.jsx      # Add/edit form for any entry type
-│       └── ReviewView.jsx      # Flash-card review sessions
-└── tools/
-    └── vault-to-radix/
-        └── index.js            # CLI: converts an Obsidian vault to Radix JSON
+src/
+├── main.jsx
+├── App.jsx                  # shell: which view is shown, global shortcuts
+├── App.css                  # all styles and both themes
+├── utils.js                 # entry helpers, story → HTML, file helpers
+├── store/
+│   ├── useLibrary.js        # entries, lookup maps, CRUD, load/save
+│   ├── useStories.js        # pending proposals and decision history
+│   └── useTheme.js          # system / light / dark
+├── lib/
+│   └── stories.js           # request export, proposal import, link → component
+├── graph/
+│   └── engine.js            # simulation + canvas renderer (no React)
+├── hooks/
+│   └── useKeyboard.js
+└── components/
+    ├── Header.jsx           # tabs, load/save, theme toggle
+    ├── WelcomeView.jsx
+    ├── LibraryView.jsx      # search, filters, paged entry list
+    ├── GraphView.jsx        # React wrapper around the engine, side panel
+    ├── StoriesView.jsx      # request → import → one-by-one review
+    ├── EditorView.jsx
+    ├── ReviewView.jsx       # flash cards
+    └── EntryChip.jsx
+docs/story-guidelines.md     # what makes a good story
+tools/stories/README.md      # request / proposals file formats
+tools/vault-to-radix/        # CLI: Obsidian vault → Radix JSON
 ```
 
 ---
 
 ## Data Model
 
-Everything is a single **Entry** type. The role of an entry is derived from its fields at runtime — there is no stored `type` field.
+Everything is a single **Entry** type. The role of an entry is derived from its
+fields at runtime — there is no stored `type` field.
 
 ```ts
 interface Entry {
-  id: string                  // generated on creation
-  character: string           // the Hanzi/Kanji glyph (can be empty for abstract primitives)
+  id: string
+  character: string           // the glyph (may be empty for abstract primitives)
   keyword: string             // standalone English meaning; empty → not a standalone character
-  primitiveKeywords: string[] // names used when this entry appears inside another character's story
-  componentIds: string[]      // IDs of entries that compose this character
-  bookNumber: number | null   // 1 or 2
+  primitiveKeywords: string[] // names used when this entry appears inside another story
+  componentIds: string[]      // entries this character is built from
+  heisigNumber: number | null // position in the course
+  bookNumber: number | null
   lessonNumber: number | null
   strokeCount: number | null
-  story: string               // mnemonic text
+  story: string               // mnemonic; [[name]] / [[name|shown]] link components
   isMastered: boolean
+  sourcePage?: number         // optional: page in your textbook
+  sourceHasStory?: boolean    // optional: whether the textbook gives a story there
 }
 ```
 
-### Derived types
+| Condition | Type |
+|---|---|
+| `keyword` only | **Character** |
+| `primitiveKeywords` only | **Primitive** |
+| both | **Dual** |
 
-| Condition | Type | Card colour |
-|---|---|---|
-| `keyword` only | **Character** | Blue |
-| `primitiveKeywords` only | **Primitive** | Violet |
-| Both `keyword` + `primitiveKeywords` | **Dual** | Teal |
-
-Only entries with a `keyword` (Character + Dual) appear in review sessions.
+Only entries with a `keyword` appear in review sessions and story requests. A
+story that consists solely of links (`[[sun]] + [[moon]]`) is treated as a
+placeholder, not as a story.
 
 ---
 
 ## Persistence
 
-On every library change, state is serialised to `localStorage` under the key `radix_library`. On startup this data is restored automatically.
+| `localStorage` key | Holds |
+|---|---|
+| `radix_library` | the entries (written shortly after each change) |
+| `radix_stories` | proposals awaiting a decision, rejections with reasons, recent approvals |
+| `radix_theme` | `system`, `light` or `dark` |
 
-The **↓ Save** button downloads a timestamped `radix_library_YYYY-MM-DDTHH-MM-SS.json` — the canonical format for sharing and backup. The **↑ Load** button imports a previously saved file, replacing the current library after a confirmation prompt.
-
-A migration function (`migrateData` in `utils.js`) handles the legacy two-collection format (`{ primitives[], characters[] }`) transparently on load.
-
----
-
-## State Architecture
-
-All application state lives in `App.jsx`. Child components receive data and callbacks as props — no context or external state library.
-
-```
-App (state owner)
-├── currentView: 'welcome' | 'library' | 'editor' | 'review'
-├── entries: Entry[]                        (source of truth)
-├── entryMap: Map<id, Entry>                (derived; memoised)
-├── usedByMap: Map<id, id[]>               (derived; memoised)
-└── editingItem: Entry | null
-```
-
-`entryMap` and `usedByMap` are built once per `entries` change and passed down to all views. They give every component O(1) id-to-entry and reverse-dependency lookups without array scans.
-
-View transitions are handled by setting `currentView`. The header is hidden during review to keep the interface distraction-free.
+**↓ Save** downloads `radix_library_<time>.json`, the format for backup and
+sharing. **↑ Load** replaces the current library after a confirmation. The
+legacy two-collection format (`{ primitives[], characters[] }`) is migrated on load.
 
 ---
 
 ## Graph View
 
-The library has a **⬡ Graph** toggle that renders a force-directed graph of component relationships using an HTML `<canvas>` element.
+A force-directed graph of which characters are built from which, drawn on a
+single `<canvas>` by `src/graph/engine.js`. It shows the whole library at once;
+there is no node limit.
 
-**Physics:**
-- Coulomb-style repulsion with a spatial grid (80 px cell size) — only adjacent cells are compared, giving ~35× fewer pair calculations than a naïve O(n²) loop
-- Hooke spring attraction along component edges
-- Centre gravity to prevent drift
-- Simulated annealing (alpha decay) for guaranteed convergence
+What keeps it smooth with thousands of entries:
 
-**Controls:**
+- positions and velocities are typed arrays; a tick allocates nothing
+- repulsion only looks at neighbouring cells of a spatial grid
+- several ticks run per frame inside a time budget, so the layout settles in a
+  second or two, then the loop stops until something changes
+- nodes are copied from pre-rendered sprites (disc, ring and glyph), built a
+  small tile at a time
+- edges are stroked in screen coordinates in batches; everything outside the
+  viewport is skipped
+- React state is only touched when the selection changes, never per frame
 
-| Control | Action |
-|---|---|
-| Size slider | Scale all node radii |
-| −/⊡/+ | Zoom out / fit all / zoom in |
-| ◉ Circles | Toggle filled circles on/off |
-| Aa Keywords | Show keyword text in nodes instead of character glyphs; hover reveals the character |
-| ⛶ | Fullscreen |
-
-Drag any node to reposition it; drag the background to pan; scroll or pinch to zoom (smooth lerp animation).
-
-Click a node to open a panel showing its keyword, story, components, and which characters use it. Press `E` or click *Edit entry* to open the editor.
-
-**Scale:** defaults to the 500 most-connected nodes when the library exceeds that count, with a "Show all N" override. The canvas pixel buffer is kept in sync with the container via `ResizeObserver`, so fullscreen and window-resize work correctly.
+Controls: drag the background to pan, scroll or pinch to zoom, drag a node to
+move it, click a node for its story, components and uses. **Up to lesson**
+limits the graph to what you have reached so far.
 
 ---
 
 ## Obsidian Vault Converter
 
-`tools/vault-to-radix/index.js` is a zero-dependency Node.js CLI that converts a vault of Obsidian markdown files into the Radix JSON format.
+`tools/vault-to-radix/index.js` is a zero-dependency Node.js CLI that converts a
+vault of Obsidian markdown files into the Radix JSON format.
 
 ```bash
 node tools/vault-to-radix/index.js /path/to/vault output.json
 ```
 
-**File conventions it understands:**
-- Filename stem: `N character keyword` (e.g. `1 一 one.md`) or `character keyword` or bare `keyword`
+- Filename stem: `N character keyword` (e.g. `1 一 one.md`), `character keyword`, or bare `keyword`
 - Frontmatter fields: `aliases`, `lesson`, `book`, `story`
-- Component links: Obsidian `[[wikilinks]]` in the `story` field are resolved to `componentIds`
-- Primitive indicators: aliases prefixed with 💠 become `primitiveKeywords`; a file with only 💠 aliases becomes a pure Primitive
+- `[[wikilinks]]` in the story are resolved to `componentIds`
+- Aliases prefixed with 💠 become `primitiveKeywords`
 
 ---
 
@@ -286,20 +290,16 @@ node tools/vault-to-radix/index.js /path/to/vault output.json
 
 ```bash
 npm install
-npm run dev
-```
-
-Open `http://localhost:5173`.
-
-```bash
-npm run build   # outputs to dist/
-npm run preview # serves the production build locally
+npm run dev      # http://localhost:5173
+npm run build    # outputs to dist/
+npm run preview  # serves the production build
 ```
 
 ---
 
 ## Design Philosophy
 
-- **No SRS.** Review order is randomised each session. A sufficiently vivid story locks a character in without spaced repetition.
-- **Hierarchy enforced visually.** Components of a character are shown inline in the library, the graph, and during review — the compositional logic is always visible.
-- **Local-first.** The app works entirely offline. Your data never leaves the browser unless you explicitly download it.
+- **No SRS.** Review order is random. A vivid story should hold without a schedule.
+- **Nothing unseen.** Proposed stories enter the library only when you approve them.
+- **Quiet interface.** Type and space carry the page; colour marks the three entry types and little else.
+- **Local-first.** Everything runs in the browser. Data leaves it only when you download a file.

@@ -1,302 +1,215 @@
-import { useState, useMemo, memo, useDeferredValue, useRef } from 'react'
-import { entryType, entryDisplayName, storyToHtml } from '../utils.js'
-import GraphView from './GraphView.jsx'
+import { useState, useMemo, memo, useDeferredValue, useRef, useEffect } from 'react'
+import { entryType, entryDisplayName, storyToHtml, hasStory, entryMeta } from '../utils.js'
 import { useKeyboard } from '../hooks/useKeyboard.js'
+import EntryChip from './EntryChip.jsx'
 
-function TypeBadge({ type }) {
-  const labels = { primitive: '💠 Primitive', character: 'Character', dual: 'Dual' }
-  return <span className={`type-badge type-badge-${type}`}>{labels[type]}</span>
-}
+const PAGE = 60
 
-const EntryCard = memo(function EntryCard({ entry, entryMap, onEdit, onDelete, onToggleMastered }) {
+const EntryRow = memo(function EntryRow({ entry, entryMap, onEdit, onDelete, onToggleMastered, onShowInGraph }) {
   const type = entryType(entry)
-  const components = entry.componentIds
-    .map(id => entryMap.get(id))
-    .filter(Boolean)
+  const components = (entry.componentIds || []).map(id => entryMap.get(id)).filter(Boolean)
+  const real = hasStory(entry)
+  const meta = [entryMeta(entry), entry.sourcePage ? `p. ${entry.sourcePage}` : ''].filter(Boolean).join(' · ')
 
   function confirmDelete() {
-    const name = entryDisplayName(entry)
-    if (window.confirm(`Delete "${name}"?`)) onDelete(entry.id)
+    if (window.confirm(`Delete “${entryDisplayName(entry)}”?`)) onDelete(entry.id)
   }
 
   return (
-    <div className={`item-card entry-card-${type} ${type !== 'primitive' && entry.isMastered ? 'mastered' : ''}`}>
-      <div className="item-main">
-        {entry.character && (
-          <span className="item-character">{entry.character}</span>
-        )}
-        <div className="item-info">
-          <div className="item-headline">
-            <span className="item-keyword">{entryDisplayName(entry)}</span>
-            <TypeBadge type={type} />
-          </div>
-
-          {entry.primitiveKeywords?.length > 0 && (
-            <span className="item-prim-keywords">
-              💠 {entry.primitiveKeywords.join(' · ')}
-            </span>
+    <li className={`entry entry-${type}${entry.isMastered ? ' is-mastered' : ''}`}>
+      <button className="entry-glyph" onClick={() => onEdit(entry)} title="Edit">
+        {entry.character || <span className="entry-glyph-none">·</span>}
+      </button>
+      <div className="entry-body">
+        <div className="entry-head">
+          <span className="entry-name">{entryDisplayName(entry)}</span>
+          {entry.keyword && entry.primitiveKeywords?.length > 0 && (
+            <span className="entry-prim">as a part: {entry.primitiveKeywords.join(', ')}</span>
           )}
-
-          {(entry.strokeCount || (type !== 'primitive' && (entry.bookNumber || entry.heisigNumber))) && (
-            <span className="item-meta">
-              {entry.strokeCount && `${entry.strokeCount} strokes`}
-              {type !== 'primitive' && entry.bookNumber && `${entry.strokeCount ? ' · ' : ''}Book ${entry.bookNumber}`}
-              {type !== 'primitive' && entry.lessonNumber && ` · Lesson ${entry.lessonNumber}`}
-              {type !== 'primitive' && entry.heisigNumber && ` · #${entry.heisigNumber}`}
-            </span>
-          )}
-
-          {entry.story && (
-            <span
-              className="item-story"
-              dangerouslySetInnerHTML={{ __html: storyToHtml(entry.story) }}
-            />
-          )}
-
-          {components.length > 0 && (
-            <div className="item-components">
-              {components.map(c => (
-                <span
-                  key={c.id}
-                  className={`comp-tag comp-tag-${entryType(c)}`}
-                  title={c.primitiveKeywords?.join(', ') || c.keyword}
-                >
-                  {c.character && <span>{c.character}</span>}
-                  {c.primitiveKeywords?.length > 0 ? <>💠 {c.primitiveKeywords[0]}</> : entryDisplayName(c)}
-                </span>
-              ))}
-            </div>
+          {!entry.keyword && entry.primitiveKeywords?.length > 1 && (
+            <span className="entry-prim">also {entry.primitiveKeywords.slice(1).join(', ')}</span>
           )}
         </div>
+        {real && <p className="entry-story" dangerouslySetInnerHTML={{ __html: storyToHtml(entry.story) }} />}
+        {(components.length > 0 || meta) && (
+          <div className="entry-foot">
+            {components.map(c => <EntryChip key={c.id} entry={c} />)}
+            {meta && <span className="entry-meta">{meta}</span>}
+          </div>
+        )}
       </div>
-
-      <div className="item-actions">
+      <div className="entry-actions">
         {type !== 'primitive' && (
           <button
-            className={`icon-btn ${entry.isMastered ? 'mastered-btn' : ''}`}
+            className={`icon-btn${entry.isMastered ? ' on' : ''}`}
             onClick={() => onToggleMastered(entry.id)}
-            title={entry.isMastered ? 'Mark unmastered' : 'Mark mastered'}
-          >
-            {entry.isMastered ? '★' : '☆'}
-          </button>
+            title={entry.isMastered ? 'Mark as not mastered' : 'Mark as mastered'}
+            aria-pressed={entry.isMastered}
+          >{entry.isMastered ? '★' : '☆'}</button>
         )}
-        <button className="icon-btn" onClick={() => onEdit(entry)} title="Edit">✏️</button>
-        <button className="icon-btn danger" onClick={confirmDelete} title="Delete">🗑</button>
+        <button className="icon-btn" onClick={() => onShowInGraph(entry)} title="Show in graph">◎</button>
+        <button className="icon-btn" onClick={() => onEdit(entry)} title="Edit">✎</button>
+        <button className="icon-btn danger" onClick={confirmDelete} title="Delete">✕</button>
       </div>
-    </div>
+    </li>
   )
 })
 
-export default function LibraryView({ entries, entryMap, usedByMap, onEdit, onDelete, onToggleMastered, onNew, onReview }) {
-  const [viewMode, setViewMode] = useState('list') // 'list' | 'graph'
+export default function LibraryView({ entries, entryMap, onEdit, onDelete, onToggleMastered, onNew, onShowInGraph }) {
   const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState('all') // 'all'|'primitive'|'character'|'dual'
-  const [filterBook, setFilterBook] = useState('all')
-  const [filterLesson, setFilterLesson] = useState('')
-  const [filterMastered, setFilterMastered] = useState('all')
+  const [type, setType] = useState('all')
+  const [story, setStory] = useState('all')       // all | with | without
+  const [mastered, setMastered] = useState('all') // all | yes | no
+  const [lesson, setLesson] = useState('')
+  const [sort, setSort] = useState('order')       // order | strokes | name
+  const [shown, setShown] = useState(PAGE)
   const searchRef = useRef(null)
+  const sentinelRef = useRef(null)
 
-  // `/` focuses the search box
   useKeyboard(e => {
     if (e.key === '/') { e.preventDefault(); searchRef.current?.focus() }
   }, [])
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    return entries.filter(entry => {
-      const type = entryType(entry)
-
-      const matchSearch =
-        q === '' ||
-        entry.character?.includes(q) ||
-        entry.keyword?.toLowerCase().includes(q) ||
-        entry.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q)) ||
-        entry.story?.toLowerCase().includes(q)
-
-      const matchType = filterType === 'all' || type === filterType
-
-      const matchBook =
-        filterBook === 'all' ||
-        String(entry.bookNumber) === filterBook
-
-      const matchLesson =
-        filterLesson === '' || String(entry.lessonNumber) === filterLesson
-
-      const matchMastered =
-        filterMastered === 'all' ||
-        (filterMastered === 'mastered' && entry.isMastered) ||
-        (filterMastered === 'unmastered' && !entry.isMastered && type !== 'primitive')
-
-      return matchSearch && matchType && matchBook && matchLesson && matchMastered
-    })
-  }, [entries, search, filterType, filterBook, filterLesson, filterMastered])
-
   const counts = useMemo(() => {
-    const c = { primitive: 0, character: 0, dual: 0, mastered: 0 }
+    const c = { all: entries.length, character: 0, dual: 0, primitive: 0, withStory: 0, reviewable: 0, mastered: 0 }
     for (const e of entries) {
       c[entryType(e)]++
+      if (e.keyword?.trim()) { c.reviewable++; if (hasStory(e)) c.withStory++ }
       if (e.isMastered) c.mastered++
     }
     return c
   }, [entries])
 
-  const reviewable = entries.filter(e => e.keyword?.trim())
+  const q = useDeferredValue(search.trim().toLowerCase())
 
-  // Defer list rendering so search input stays responsive
-  const deferredFiltered = useDeferredValue(filtered)
-
-  // Group by stroke count if any entry in the filtered set has one
-  const strokeGroups = useMemo(() => {
-    if (!deferredFiltered.some(e => e.strokeCount != null)) return null
-    const map = new Map()
-    for (const e of deferredFiltered) {
-      const key = e.strokeCount ?? null
-      if (!map.has(key)) map.set(key, [])
-      map.get(key).push(e)
+  const filtered = useMemo(() => {
+    const list = entries.filter(e => {
+      const t = entryType(e)
+      if (type !== 'all' && t !== type) return false
+      if (lesson !== '' && String(e.lessonNumber) !== lesson) return false
+      if (story !== 'all' && (t === 'primitive' || hasStory(e) !== (story === 'with'))) return false
+      if (mastered !== 'all' && (t === 'primitive' || Boolean(e.isMastered) !== (mastered === 'yes'))) return false
+      if (q) {
+        const hit = e.character?.includes(q) ||
+          e.keyword?.toLowerCase().includes(q) ||
+          e.primitiveKeywords?.some(pk => pk.toLowerCase().includes(q)) ||
+          (hasStory(e) && e.story.toLowerCase().includes(q)) ||
+          String(e.heisigNumber ?? '') === q
+        if (!hit) return false
+      }
+      return true
+    })
+    if (sort === 'strokes') {
+      return [...list].sort((a, b) => (a.strokeCount ?? 99) - (b.strokeCount ?? 99))
     }
-    return [...map.entries()]
-      .sort(([a], [b]) => {
-        if (a === null) return 1
-        if (b === null) return -1
-        return a - b
-      })
-  }, [deferredFiltered])
+    if (sort === 'name') {
+      return [...list].sort((a, b) => entryDisplayName(a).localeCompare(entryDisplayName(b)))
+    }
+    return list
+  }, [entries, q, type, story, mastered, lesson, sort])
+
+  // Render in pages: only the first PAGE rows mount; more are added as the
+  // sentinel at the end of the list scrolls into view.
+  useEffect(() => { setShown(PAGE) }, [q, type, story, mastered, lesson, sort])
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const io = new IntersectionObserver(([en]) => {
+      if (en.isIntersecting) setShown(s => s + PAGE)
+    }, { rootMargin: '600px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [filtered, shown >= filtered.length])
+
+  const visible = filtered.slice(0, shown)
+  const filtersOn = q || type !== 'all' || story !== 'all' || mastered !== 'all' || lesson !== ''
+
+  function clearFilters() {
+    setSearch(''); setType('all'); setStory('all'); setMastered('all'); setLesson('')
+  }
 
   return (
-    <div className="library">
-      {/* Toolbar */}
-      <div className="library-toolbar">
-        <div className="library-stats">
-          <button
-            className={`stat primitive-stat ${filterType === 'primitive' ? 'active' : ''}`}
-            onClick={() => setFilterType(f => f === 'primitive' ? 'all' : 'primitive')}
-          >💠 {counts.primitive} Primitives</button>
-          <button
-            className={`stat dual-stat ${filterType === 'dual' ? 'active' : ''}`}
-            onClick={() => setFilterType(f => f === 'dual' ? 'all' : 'dual')}
-          >{counts.dual} Dual</button>
-          <button
-            className={`stat character-stat ${filterType === 'character' ? 'active' : ''}`}
-            onClick={() => setFilterType(f => f === 'character' ? 'all' : 'character')}
-          >{counts.character} Characters</button>
-          <button
-            className={`stat mastered-stat ${filterMastered === 'mastered' ? 'active' : ''}`}
-            onClick={() => setFilterMastered(f => f === 'mastered' ? 'all' : 'mastered')}
-          >{counts.mastered} Mastered</button>
+    <div className="page library">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Library</h1>
+          <p className="page-sub">
+            {counts.reviewable.toLocaleString()} characters · {counts.withStory.toLocaleString()} with a story · {counts.mastered.toLocaleString()} mastered
+          </p>
         </div>
-        <div className="library-actions">
-          <div className="view-toggle">
-            <button
-              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              title="List view"
-            >
-              ☰ List
-            </button>
-            <button
-              className={`view-btn ${viewMode === 'graph' ? 'active' : ''}`}
-              onClick={() => setViewMode('graph')}
-              title="Graph view"
-            >
-              ⬡ Graph
-            </button>
-          </div>
-          <button className="btn btn-primary" onClick={onNew}>+ Add Entry</button>
-          {reviewable.length > 0 && (
-            <button className="btn btn-outline" onClick={onReview}>Review</button>
-          )}
-        </div>
+        <button className="btn btn-primary" onClick={onNew}>New entry</button>
       </div>
 
-      {/* Graph view */}
-      {viewMode === 'graph' && (
-        <GraphView entries={entries} entryMap={entryMap} usedByMap={usedByMap} onEdit={onEdit} />
+      <div className="searchbar">
+        <input
+          ref={searchRef}
+          className="search-input"
+          type="search"
+          placeholder="Search character, keyword, number or story  ( / )"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.target.blur() } }}
+        />
+      </div>
+
+      <div className="filters">
+        <div className="seg" role="group" aria-label="Type">
+          {[['all', 'All', counts.all], ['character', 'Characters', counts.character], ['dual', 'Dual', counts.dual], ['primitive', 'Primitives', counts.primitive]].map(([v, label, n]) => (
+            <button key={v} className={`seg-btn seg-${v}${type === v ? ' active' : ''}`} onClick={() => setType(v)} aria-pressed={type === v}>
+              {label} <span className="seg-count">{n.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+        <select className="select" value={story} onChange={e => setStory(e.target.value)} aria-label="Story">
+          <option value="all">Any story state</option>
+          <option value="with">With a story</option>
+          <option value="without">Without a story</option>
+        </select>
+        <select className="select" value={mastered} onChange={e => setMastered(e.target.value)} aria-label="Mastered">
+          <option value="all">Mastered or not</option>
+          <option value="yes">Mastered</option>
+          <option value="no">Not mastered</option>
+        </select>
+        <input
+          className="input input-narrow" type="number" min="1" placeholder="Lesson"
+          value={lesson} onChange={e => setLesson(e.target.value)} aria-label="Lesson"
+        />
+        <select className="select" value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort">
+          <option value="order">Library order</option>
+          <option value="strokes">Stroke count</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+
+      {filtersOn && (
+        <p className="result-line">
+          {filtered.length.toLocaleString()} of {entries.length.toLocaleString()} entries
+          <button className="link-btn" onClick={clearFilters}>Clear filters</button>
+        </p>
       )}
 
-      {/* List view */}
-      {viewMode === 'list' && (
-        <>
-          <div className="library-filters">
-            <input
-              ref={searchRef}
-              className="search-input"
-              type="text"
-              placeholder="Search keyword, character, story… ( / )"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.target.blur() } }}
+      {filtered.length === 0 ? (
+        <div className="empty">
+          {entries.length === 0
+            ? <>The library is empty. <button className="link-btn" onClick={onNew}>Add the first entry</button></>
+            : 'Nothing matches these filters.'}
+        </div>
+      ) : (
+        <ul className="entry-list">
+          {visible.map(entry => (
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              entryMap={entryMap}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onToggleMastered={onToggleMastered}
+              onShowInGraph={onShowInGraph}
             />
-            <select
-              className="filter-select"
-              value={filterBook}
-              onChange={e => setFilterBook(e.target.value)}
-            >
-              <option value="all">All Books</option>
-              <option value="1">Book 1</option>
-              <option value="2">Book 2</option>
-            </select>
-            <input
-              className="filter-input"
-              type="number"
-              placeholder="Lesson #"
-              value={filterLesson}
-              onChange={e => setFilterLesson(e.target.value)}
-              min="1"
-            />
-            <select
-              className="filter-select"
-              value={filterMastered}
-              onChange={e => setFilterMastered(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="mastered">Mastered</option>
-              <option value="unmastered">Unmastered</option>
-            </select>
-          </div>
-
-          {deferredFiltered.length === 0 ? (
-            <div className="empty-state">
-              {entries.length === 0
-                ? 'Your library is empty. Click "+ Add Entry" to begin.'
-                : 'No entries match your filters.'}
-            </div>
-          ) : (
-            <div className="item-list">
-              {strokeGroups === null
-                ? deferredFiltered.map(entry => (
-                    <EntryCard
-                      key={entry.id}
-                      entry={entry}
-                      entryMap={entryMap}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
-                      onToggleMastered={onToggleMastered}
-                    />
-                  ))
-                : strokeGroups.map(([count, groupEntries]) => (
-                    <div key={count ?? 'unknown'} className="stroke-group">
-                      <div className="stroke-group-header">
-                        {count != null
-                          ? `${count} stroke${count === 1 ? '' : 's'}`
-                          : 'No stroke count'}
-                      </div>
-                      {groupEntries.map(entry => (
-                        <EntryCard
-                          key={entry.id}
-                          entry={entry}
-                          entryMap={entryMap}
-                          onEdit={onEdit}
-                          onDelete={onDelete}
-                          onToggleMastered={onToggleMastered}
-                        />
-                      ))}
-                    </div>
-                  ))
-              }
-            </div>
-          )}
-        </>
+          ))}
+        </ul>
       )}
+      {shown < filtered.length && <div ref={sentinelRef} className="list-sentinel">Loading more…</div>}
     </div>
   )
 }

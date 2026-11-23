@@ -21,3 +21,6 @@ npm-debug.log*
 
 # Local data
 radix_library.json
+
+# Story request / proposal files (contain library content)
+radix_story_*.json

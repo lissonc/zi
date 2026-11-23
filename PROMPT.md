@@ -1,3 +1,6 @@
+> **Note:** this is the specification the first version of Radix was built from. It no longer
+> describes the current app (see `README.md`).
+
 # Radix — Project Specification Prompt
 
 Build **Radix**: a local-first, single-page React app for learning Chinese/Japanese characters using the Heisig method. Zero backend, zero server — all data lives in the browser's `localStorage` and can be exported/imported as a JSON file.

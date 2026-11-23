@@ -1,69 +1,64 @@
 import { useRef } from 'react'
 
-export default function Header({ currentView, hasLibrary, onNavigate, onDownload, onLoad, entryCount }) {
+const THEME_LABEL = { system: 'Auto', light: 'Light', dark: 'Dark' }
+const THEME_ICON = { system: '◐', light: '☀', dark: '☾' }
+
+export default function Header({ view, hasLibrary, onNavigate, onDownload, onLoad, onNew, counts, theme, onCycleTheme }) {
   const fileRef = useRef(null)
 
   function handleFile(e) {
     const file = e.target.files[0]
     if (!file) return
-    // Reset so the same file can be re-imported if needed
-    e.target.value = ''
+    e.target.value = '' // allow re-importing the same file
     onLoad(file)
   }
 
+  const tabs = [
+    ['library', 'Library', counts.entries, 'Ctrl+Shift+L'],
+    ['graph', 'Graph', null, 'Ctrl+Shift+G'],
+    ['stories', 'Stories', counts.pending || null, 'Ctrl+Shift+S'],
+    ['review', 'Review', null, 'Ctrl+Shift+R'],
+  ]
+
   return (
     <header className="header">
-      <div
-        className="header-brand header-brand-link"
-        onClick={() => onNavigate(hasLibrary ? 'library' : 'welcome')}
-        role="button"
-        tabIndex={0}
-        onKeyDown={e => e.key === 'Enter' && onNavigate(hasLibrary ? 'library' : 'welcome')}
-      >
-        <span className="header-logo">字</span>
-        <span className="header-title">Radix</span>
-        <span className="mode-badge">Traditional Hanzi</span>
-      </div>
+      <button className="brand" onClick={() => onNavigate(hasLibrary ? 'library' : 'welcome')} aria-label="Radix home">
+        <span className="brand-mark">字</span>
+        <span className="brand-name">Radix</span>
+      </button>
 
       {hasLibrary && (
-        <nav className="header-nav">
-          <button
-            className={`nav-btn ${currentView === 'library' ? 'active' : ''}`}
-            onClick={() => onNavigate('library')}
-            title="Library (Ctrl+Shift+L)"
-          >
-            📖 <span className="nav-text">Library</span>
-            <span className="nav-count">{entryCount}</span>
-          </button>
-          <button
-            className={`nav-btn ${currentView === 'editor' ? 'active' : ''}`}
-            onClick={() => onNavigate('editor')}
-            title="New entry (Ctrl+Shift+N)"
-          >
-            + <span className="nav-text">Add</span>
-          </button>
-          <button
-            className={`nav-btn ${currentView === 'review' ? 'active' : ''}`}
-            onClick={() => onNavigate('review')}
-            title="Review (Ctrl+Shift+R)"
-          >
-            ⟳ <span className="nav-text">Review</span>
-          </button>
-          <label className="nav-btn load-btn" title="Load library">
-            ↑ <span className="nav-text">Load</span>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".json"
-              className="sr-only"
-              onChange={handleFile}
-            />
-          </label>
-          <button className="nav-btn save-btn" onClick={onDownload} title="Download library (Ctrl+S)">
-            ↓ <span className="nav-text">Save</span>
-          </button>
+        <nav className="tabs" aria-label="Views">
+          {tabs.map(([id, label, count, key]) => (
+            <button
+              key={id}
+              className={`tab${view === id ? ' active' : ''}`}
+              onClick={() => onNavigate(id)}
+              title={`${label} (${key})`}
+              aria-current={view === id ? 'page' : undefined}
+            >
+              {label}
+              {count != null && <span className={`tab-count${id === 'stories' ? ' tab-count-accent' : ''}`}>{count}</span>}
+            </button>
+          ))}
         </nav>
       )}
+
+      <div className="header-tools">
+        {hasLibrary && (
+          <>
+            <button className="tool" onClick={onNew} title="New entry (Ctrl+Shift+N)">＋<span className="tool-text">New</span></button>
+            <label className="tool" title="Load a library file">
+              ↑<span className="tool-text">Load</span>
+              <input ref={fileRef} type="file" accept=".json" className="sr-only" onChange={handleFile} />
+            </label>
+            <button className="tool" onClick={onDownload} title="Download library (Ctrl+S)">↓<span className="tool-text">Save</span></button>
+          </>
+        )}
+        <button className="tool" onClick={onCycleTheme} title={`Theme: ${THEME_LABEL[theme]}`} aria-label={`Theme: ${THEME_LABEL[theme]}`}>
+          {THEME_ICON[theme]}
+        </button>
+      </div>
     </header>
   )
 }

@@ -15,8 +15,9 @@ export function entryDisplayName(entry) {
 }
 
 /**
- * Convert a story string to safe HTML, wrapping [[name]] references in a
- * styled span. Used in the editor mirror and in library/review card display.
+ * Convert a story string to safe HTML for reading: [[name]] and [[name|alias]]
+ * become an underlined word (the brackets are dropped). The editor uses
+ * storyToHtmlMirror instead, which keeps every character in place.
  */
 export function storyToHtml(text) {
   const escaped = text
@@ -28,7 +29,7 @@ export function storyToHtml(text) {
     (_, inner) => {
       // [[name|alias]] → display alias only; [[name]] → display name
       const display = inner.includes('|') ? inner.split('|', 2)[1] : inner
-      return `<span class="story-mention-chip">[[${display}]]</span>`
+      return `<span class="story-mention-chip">${display}</span>`
     }
   )
 }
@@ -101,4 +102,58 @@ export function migrateData(data) {
   }
 
   return entries
+}
+
+/** The name used to link to an entry from a story: first primitive keyword, else keyword. */
+export function canonicalName(entry) {
+  return entry.primitiveKeywords?.[0] || entry.keyword || entry.character || ''
+}
+
+const SCAFFOLD_RE = /^\s*(\[\[[^\]]*\]\]\s*(\+\s*)?)*$/
+
+/**
+ * A "scaffold" is a story field that only lists linked components
+ * (e.g. "[[sun]] + [[moon]]") — a placeholder, not a mnemonic yet.
+ */
+export function isScaffold(story) {
+  return SCAFFOLD_RE.test(story || '')
+}
+
+/** True when the entry has a real mnemonic story, not just a component scaffold. */
+export function hasStory(entry) {
+  return Boolean(entry.story?.trim()) && !isScaffold(entry.story)
+}
+
+/** Short meta line: "#12 · Lesson 1 · 4 strokes". */
+export function entryMeta(entry) {
+  const parts = []
+  if (entry.heisigNumber) parts.push(`#${entry.heisigNumber}`)
+  if (entry.lessonNumber) parts.push(`Lesson ${entry.lessonNumber}`)
+  if (entry.strokeCount) parts.push(`${entry.strokeCount} stroke${entry.strokeCount === 1 ? '' : 's'}`)
+  return parts.join(' · ')
+}
+
+export function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export function timestamp() {
+  return new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '')
+}
+
+export function readJsonFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try { resolve(JSON.parse(e.target.result)) } catch (err) { reject(err) }
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(file)
+  })
 }
